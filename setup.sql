@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS trades (
     trade_date DATE NOT NULL,
     notes TEXT,
     emotion VARCHAR(50),
+    emotion_note TEXT DEFAULT NULL,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
 );
