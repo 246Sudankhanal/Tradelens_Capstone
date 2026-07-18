@@ -1,8 +1,12 @@
 <?php
+session_start();
 require_once 'config/db.php';
 
-$message = $_GET['message'] ?? '';
-$status = $_GET['status'] ?? '';
+$message = $_SESSION['import_message'] ?? '';
+$errors = $_SESSION['import_errors'] ?? [];
+
+unset($_SESSION['import_message']);
+unset($_SESSION['import_errors']);
 ?>
 
 <!DOCTYPE html>
@@ -16,6 +20,15 @@ $status = $_GET['status'] ?? '';
 
     <?php if (!empty($message)): ?>
         <p><strong><?php echo htmlspecialchars($message); ?></strong></p>
+    <?php endif; ?>
+
+    <?php if (!empty($errors)): ?>
+        <h3>Import Errors</h3>
+        <ul>
+            <?php foreach ($errors as $error): ?>
+                <li><?php echo htmlspecialchars($error); ?></li>
+            <?php endforeach; ?>
+        </ul>
     <?php endif; ?>
 
     <form action="api/import_trades.php" method="POST" enctype="multipart/form-data">
