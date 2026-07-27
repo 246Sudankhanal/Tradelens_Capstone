@@ -1,321 +1,136 @@
 <?php
-require_once __DIR__ . '/../config/db.php';
+session_start();
+require_once '../config/db.php';
 
-if (session_status() === PHP_SESSION_NONE) session_start();
-header('Content-Type: application/json');
+function redirectToImportPage($message, $errors = []) {
+    $_SESSION['import_message'] = $message;
+    $_SESSION['import_errors'] = $errors;
+    header("Location: ../import_trades.php");
+    exit;
+}
 
-$userId = requireAuth();
+function isValidDate($date) {
+    $format = 'Y-m-d';
+    $dateTime = DateTime::createFromFormat($format, $date);
+    return $dateTime && $dateTime->format($format) === $date;
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    jsonResponse(false, 'POST required.');
+    redirectToImportPage("Invalid request.");
 }
 
-if (!isset($_FILES['trade_file']) || $_FILES['trade_file']['error'] !== UPLOAD_ERR_OK) {
-    $errCodes = [
-        UPLOAD_ERR_INI_SIZE   => 'File exceeds server limit.',
-        UPLOAD_ERR_FORM_SIZE  => 'File exceeds form limit.',
-        UPLOAD_ERR_PARTIAL    => 'File was only partially uploaded.',
-        UPLOAD_ERR_NO_FILE    => 'No file uploaded.',
-    ];
-    $code = $_FILES['trade_file']['error'] ?? UPLOAD_ERR_NO_FILE;
-    jsonResponse(false, $errCodes[$code] ?? 'Upload failed.');
+if (!isset($_FILES['trade_file']) || $_FILES['trade_file']['error'] !== 0) {
+    redirectToImportPage("Please upload a valid CSV file.");
 }
 
-$file    = $_FILES['trade_file'];
-$ext     = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-$tmpPath = $file['tmp_name'];
-$maxSize = 5 * 1024 * 1024; // 5 MB
+$fileName = $_FILES['trade_file']['name'];
+$fileTmpPath = $_FILES['trade_file']['tmp_name'];
+$fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 
-if ($file['size'] > $maxSize) {
-    jsonResponse(false, 'File too large. Maximum allowed size is 5 MB.');
+if ($fileExtension !== 'csv') {
+    redirectToImportPage("Only CSV files are allowed.");
 }
 
-if (!in_array($ext, ['csv', 'xlsx'])) {
-    jsonResponse(false, 'Unsupported file type. Please upload a .csv or .xlsx file.');
-}
+try {
+    $pdo = getDB();
+    $userId = $_SESSION['user_id'] ?? 1;
 
-// ---- Parse file ----
-$rows = ($ext === 'csv') ? parseCsvFile($tmpPath) : parseXlsxFile($tmpPath);
+    $file = fopen($fileTmpPath, 'r');
 
-if ($rows === false || count($rows) === 0) {
-    jsonResponse(false, 'File is empty or could not be read.');
-}
-
-// ---- Map header row ----
-$rawHeader = array_shift($rows);
-if (empty($rawHeader)) {
-    jsonResponse(false, 'File has no header row.');
-}
-
-$header = array_map(function ($h) {
-    return strtolower(trim(preg_replace('/[\s\-]+/', '_', $h)));
-}, $rawHeader);
-
-$colMap = mapColumns($header);
-
-$required = ['asset_name', 'trade_type', 'entry_price', 'exit_price', 'trade_date'];
-foreach ($required as $col) {
-    if (!isset($colMap[$col])) {
-        jsonResponse(false, "Required column not found: \"$col\". Please use the provided template.");
-    }
-}
-
-// ---- Insert rows ----
-$db   = getDB();
-$stmt = $db->prepare('
-    INSERT INTO trades (user_id, asset_name, trade_type, entry_price, exit_price, quantity, trade_date, notes, emotion)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-');
-
-$imported = 0;
-$skipped  = 0;
-$errors   = [];
-
-foreach ($rows as $i => $row) {
-    $rowNum  = $i + 2; // row 1 is header
-
-    // Skip entirely blank rows
-    if (implode('', array_map('trim', $row)) === '') {
-        $skipped++;
-        continue;
+    if ($file === false) {
+        redirectToImportPage("Could not open CSV file.");
     }
 
-    // Extract values
-    $asset   = trim($row[$colMap['asset_name']]   ?? '');
-    $typeRaw = trim($row[$colMap['trade_type']]    ?? '');
-    $entryRaw= trim($row[$colMap['entry_price']]   ?? '');
-    $exitRaw = trim($row[$colMap['exit_price']]    ?? '');
-    $dateRaw = trim($row[$colMap['trade_date']]    ?? '');
-    $qty     = isset($colMap['quantity']) ? trim($row[$colMap['quantity']] ?? '') : '';
-    $notes   = isset($colMap['notes'])   ? trim($row[$colMap['notes']]    ?? '') : '';
-    $emotion = isset($colMap['emotion']) ? trim($row[$colMap['emotion']]  ?? '') : '';
+    $header = fgetcsv($file);
 
-    // Validate
-    if ($asset === '') {
-        $errors[] = "Row $rowNum: Asset name is required."; $skipped++; continue;
+    if ($header === false) {
+        redirectToImportPage("CSV file is empty.");
     }
 
-    $type = ucfirst(strtolower($typeRaw));
-    if (!in_array($type, ['Buy', 'Sell'])) {
-        $errors[] = "Row $rowNum: Trade type must be Buy or Sell (got \"$typeRaw\")."; $skipped++; continue;
-    }
+    $insertedRows = 0;
+    $errors = [];
+    $rowNumber = 1;
 
-    $entry = parseNumber($entryRaw);
-    if ($entry === false || $entry <= 0) {
-        $errors[] = "Row $rowNum: Invalid entry price \"$entryRaw\"."; $skipped++; continue;
-    }
+    $sql = "INSERT INTO trades 
+            (user_id, asset_name, trade_type, entry_price, exit_price, quantity, trade_date, notes, emotion, emotion_note)
+            VALUES 
+            (:user_id, :asset_name, :trade_type, :entry_price, :exit_price, :quantity, :trade_date, :notes, :emotion, :emotion_note)";
 
-    $exit = parseNumber($exitRaw);
-    if ($exit === false || $exit <= 0) {
-        $errors[] = "Row $rowNum: Invalid exit price \"$exitRaw\"."; $skipped++; continue;
-    }
+    $stmt = $pdo->prepare($sql);
 
-    $date = parseDate($dateRaw);
-    if (!$date) {
-        $errors[] = "Row $rowNum: Cannot parse date \"$dateRaw\". Use YYYY-MM-DD or MM/DD/YYYY."; $skipped++; continue;
-    }
+    while (($row = fgetcsv($file)) !== false) {
+        $rowNumber++;
 
-    $qtyNum = ($qty !== '' && is_numeric($qty) && (float)$qty > 0) ? (float)$qty : 1.0;
-
-    $validEmotions = ['Confident','Calm','Patient','Fearful','Greedy','Impulsive','Uncertain'];
-    $emotionVal    = in_array($emotion, $validEmotions) ? $emotion : null;
-
-    try {
-        $stmt->execute([$userId, $asset, $type, $entry, $exit, $qtyNum, $date, $notes, $emotionVal]);
-        $imported++;
-    } catch (PDOException $e) {
-        $errors[] = "Row $rowNum: Database error — " . $e->getMessage();
-        $skipped++;
-    }
-}
-
-$msg = "$imported trade(s) imported successfully.";
-if ($skipped > 0) $msg .= " $skipped row(s) skipped.";
-
-jsonResponse(true, $msg, [
-    'imported' => $imported,
-    'skipped'  => $skipped,
-    'errors'   => array_slice($errors, 0, 25),
-]);
-
-// ================================================================
-// HELPERS
-// ================================================================
-
-function parseCsvFile(string $path): array|false {
-    $rows   = [];
-    $handle = fopen($path, 'r');
-    if ($handle === false) return false;
-
-    // Strip UTF-8 BOM if present
-    $bom = fread($handle, 3);
-    if ($bom !== "\xEF\xBB\xBF") rewind($handle);
-
-    while (($row = fgetcsv($handle, 0, ',')) !== false) {
-        $rows[] = array_map('trim', $row);
-    }
-    fclose($handle);
-    return $rows;
-}
-
-function parseXlsxFile(string $path): array|false {
-    if (!class_exists('ZipArchive')) return false;
-
-    $zip = new ZipArchive();
-    if ($zip->open($path) !== true) return false;
-
-    // ---- Shared strings ----
-    $sharedStrings = [];
-    $ssXml = $zip->getFromName('xl/sharedStrings.xml');
-    if ($ssXml) {
-        // Remove default namespace so SimpleXML can parse without prefix issues
-        $ssXml = preg_replace('/\sxmlns[^"]*"[^"]*"/', '', $ssXml, 1);
-        $ss = @simplexml_load_string($ssXml);
-        if ($ss) {
-            foreach ($ss->si as $si) {
-                $text = '';
-                if (isset($si->t)) {
-                    $text = (string)$si->t;
-                } elseif (isset($si->r)) {
-                    foreach ($si->r as $r) {
-                        if (isset($r->t)) $text .= (string)$r->t;
-                    }
-                }
-                $sharedStrings[] = $text;
-            }
+        if (count($row) < 9) {
+            $errors[] = "Row $rowNumber error: Missing required columns.";
+            continue;
         }
-    }
 
-    // ---- First worksheet ----
-    // Try sheet1 by name, then by index in workbook
-    $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
-    if (!$sheetXml) {
-        // Try finding the first sheet path from workbook.xml
-        $wbXml = $zip->getFromName('xl/workbook.xml');
-        if ($wbXml) {
-            preg_match('/r:id="(rId\d+)"/', $wbXml, $m);
-            $rId = $m[1] ?? 'rId1';
-            $relsXml = $zip->getFromName('xl/_rels/workbook.xml.rels');
-            if ($relsXml && preg_match('/Id="' . preg_quote($rId) . '"[^>]+Target="([^"]+)"/', $relsXml, $rm)) {
-                $sheetXml = $zip->getFromName('xl/' . $rm[1]);
-            }
+        $assetName = trim($row[0]);
+        $tradeType = trim($row[1]);
+        $entryPrice = trim($row[2]);
+        $exitPrice = trim($row[3]);
+        $quantity = trim($row[4]);
+        $tradeDate = trim($row[5]);
+        $notes = trim($row[6]);
+        $emotion = trim($row[7]);
+        $emotionNote = trim($row[8]);
+
+        if ($assetName === '') {
+            $errors[] = "Row $rowNumber error: Asset name is missing.";
+            continue;
         }
-    }
-    $zip->close();
 
-    if (!$sheetXml) return false;
-
-    // Remove default namespace
-    $sheetXml = preg_replace('/\sxmlns[^"]*"[^"]*"/', '', $sheetXml, 1);
-    $sheet    = @simplexml_load_string($sheetXml);
-    if (!$sheet || !isset($sheet->sheetData)) return false;
-
-    $result = [];
-    $maxCol = 0;
-    $rowMap = [];
-
-    foreach ($sheet->sheetData->row as $row) {
-        $ri    = (int)$row['r'] - 1;
-        $cells = [];
-
-        foreach ($row->c as $cell) {
-            $ref  = (string)$cell['r'];
-            $ci   = xlsColIndex($ref);
-            $type = (string)($cell['t'] ?? '');
-            $v    = '';
-
-            if ($type === 'inlineStr') {
-                $v = isset($cell->is->t) ? (string)$cell->is->t : '';
-            } elseif (isset($cell->v)) {
-                $raw = (string)$cell->v;
-                switch ($type) {
-                    case 's':   $v = $sharedStrings[(int)$raw] ?? ''; break;
-                    case 'str': $v = $raw; break;
-                    case 'b':   $v = $raw === '1' ? 'TRUE' : 'FALSE'; break;
-                    default:    $v = $raw; // number or date serial
-                }
-            }
-
-            $cells[$ci] = $v;
-            $maxCol = max($maxCol, $ci);
+        if ($tradeType !== 'Buy' && $tradeType !== 'Sell') {
+            $errors[] = "Row $rowNumber error: Trade type must be Buy or Sell.";
+            continue;
         }
-        $rowMap[$ri] = $cells;
-    }
 
-    ksort($rowMap);
-    foreach ($rowMap as $cells) {
-        $filled = [];
-        for ($ci = 0; $ci <= $maxCol; $ci++) {
-            $filled[] = $cells[$ci] ?? '';
+        if (!is_numeric($entryPrice) || $entryPrice <= 0) {
+            $errors[] = "Row $rowNumber error: Entry price must be a positive number.";
+            continue;
         }
-        $result[] = $filled;
-    }
 
-    return $result;
-}
-
-function xlsColIndex(string $ref): int {
-    preg_match('/^([A-Z]+)/i', $ref, $m);
-    $col = strtoupper($m[1] ?? 'A');
-    $idx = 0;
-    for ($i = 0, $len = strlen($col); $i < $len; $i++) {
-        $idx = $idx * 26 + (ord($col[$i]) - 64);
-    }
-    return $idx - 1;
-}
-
-function mapColumns(array $header): array {
-    $aliases = [
-        'asset_name'  => ['asset_name','asset','symbol','ticker','name','stock','pair','instrument','asset_name','market'],
-        'trade_type'  => ['trade_type','type','direction','side','action','trade_direction','buy/sell','long/short'],
-        'entry_price' => ['entry_price','entry','buy_price','open','open_price','entry_price','purchase_price'],
-        'exit_price'  => ['exit_price','exit','sell_price','close','close_price','exit_price','sale_price'],
-        'quantity'    => ['quantity','qty','shares','units','size','lots','lot_size','volume','contracts'],
-        'trade_date'  => ['trade_date','date','trade_date','open_date','date_opened','datetime','trade_day'],
-        'notes'       => ['notes','note','comment','comments','remarks','reflection','description','journal'],
-        'emotion'     => ['emotion','mood','feeling','state','mental_state','psychology','mindset'],
-    ];
-
-    $map = [];
-    foreach ($header as $idx => $col) {
-        $col = str_replace([' ', '-'], '_', strtolower(trim($col)));
-        foreach ($aliases as $field => $names) {
-            if (in_array($col, $names) && !isset($map[$field])) {
-                $map[$field] = $idx;
-                break;
-            }
+        if (!is_numeric($exitPrice) || $exitPrice <= 0) {
+            $errors[] = "Row $rowNumber error: Exit price must be a positive number.";
+            continue;
         }
-    }
-    return $map;
-}
 
-function parseNumber(string $val): float|false {
-    $val = trim(str_replace([',', '$', '€', '£', ' '], '', $val));
-    if (!is_numeric($val)) return false;
-    $f = (float)$val;
-    return $f > 0 ? $f : false;
-}
-
-function parseDate(string $val): string|false {
-    $val = trim($val);
-    if ($val === '') return false;
-
-    // Excel date serial number (e.g. 45292)
-    if (is_numeric($val) && (int)$val > 1000) {
-        $ts = ((int)$val - 25569) * 86400;
-        return $ts > 0 ? date('Y-m-d', $ts) : false;
-    }
-
-    // Common string formats
-    $formats = ['Y-m-d', 'm/d/Y', 'd/m/Y', 'Y/m/d', 'm-d-Y', 'd-m-Y', 'n/j/Y', 'j/n/Y'];
-    foreach ($formats as $fmt) {
-        $d = DateTime::createFromFormat($fmt, $val);
-        if ($d !== false) {
-            return $d->format('Y-m-d');
+        if (!is_numeric($quantity) || $quantity <= 0) {
+            $errors[] = "Row $rowNumber error: Quantity must be a positive number.";
+            continue;
         }
+
+        if (!isValidDate($tradeDate)) {
+            $errors[] = "Row $rowNumber error: Trade date must be in YYYY-MM-DD format.";
+            continue;
+        }
+
+        $stmt->execute([
+            ':user_id' => $userId,
+            ':asset_name' => $assetName,
+            ':trade_type' => $tradeType,
+            ':entry_price' => $entryPrice,
+            ':exit_price' => $exitPrice,
+            ':quantity' => $quantity,
+            ':trade_date' => $tradeDate,
+            ':notes' => $notes,
+            ':emotion' => $emotion,
+            ':emotion_note' => $emotionNote
+        ]);
+
+        $insertedRows++;
     }
 
-    // Fallback: strtotime
-    $ts = @strtotime($val);
-    return ($ts && $ts > 0) ? date('Y-m-d', $ts) : false;
+    fclose($file);
+
+    if (!empty($errors)) {
+        redirectToImportPage("Imported $insertedRows trades. Some rows had errors.", $errors);
+    }
+
+    redirectToImportPage("Successfully imported $insertedRows trades.");
+
+} catch (Exception $e) {
+    redirectToImportPage("Import failed. Please check your CSV file and database connection.");
 }
+?>
