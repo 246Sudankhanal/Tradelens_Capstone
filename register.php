@@ -1,0 +1,106 @@
+<?php
+require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/config/oauth.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
+if (isset($_SESSION['user_id'])) {
+    header('Location: ' . BASE_URL . '/dashboard.php');
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register — TradeLens</title>
+    <link rel="stylesheet" href="<?= BASE_URL ?>/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="auth-body">
+
+<div class="auth-card">
+    <div class="auth-brand">
+        <div class="logo-icon"><i class="fa-solid fa-chart-line"></i></div>
+        <h1>TradeLens</h1>
+        <p>Your personal trading journal</p>
+    </div>
+
+    <h2 class="auth-title">Create account</h2>
+    <p class="auth-subtitle">Start tracking your trades today</p>
+
+    <div class="alert alert-error"   id="error-msg"></div>
+    <div class="alert alert-success" id="success-msg"></div>
+
+    <a class="btn btn-google" href="<?= BASE_URL ?>/api/google_oauth.php">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Continue with Google
+    </a>
+    
+
+    <div class="auth-divider">or</div>
+
+    <form id="register-form" novalidate>
+        <div class="form-group">
+            <label class="form-label">Full name</label>
+            <input type="text" name="name" class="form-control" placeholder="John Doe" required autocomplete="name">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email address</label>
+            <input type="email" name="email" class="form-control" placeholder="you@example.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Password <span class="text-muted text-sm">(min. 6 chars)</span></label>
+            <input type="password" name="password" class="form-control" placeholder="••••••••" required autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="register-btn">
+            Create Account
+        </button>
+    </form>
+
+
+</div>
+
+<script>
+document.getElementById('register-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn  = document.getElementById('register-btn');
+    const errEl = document.getElementById('error-msg');
+    const sucEl = document.getElementById('success-msg');
+    errEl.classList.remove('show');
+    sucEl.classList.remove('show');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creating account...';
+
+    const data = new FormData(this);
+    data.append('action', 'register');
+
+    try {
+        const res  = await fetch('<?= BASE_URL ?>/api/auth.php', { method: 'POST', body: data });
+        const json = await res.json();
+        if (json.success) {
+            sucEl.textContent = json.message + ' Redirecting...';
+            sucEl.classList.add('show');
+            this.reset();
+            setTimeout(() => window.location.href = '<?= BASE_URL ?>/index.php', 1800);
+        } else {
+            errEl.textContent = json.message;
+            errEl.classList.add('show');
+        }
+    } catch {
+        errEl.textContent = 'Network error. Please try again.';
+        errEl.classList.add('show');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Create Account';
+    }
+});
+</script>
+</body>
+</html>

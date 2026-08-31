@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Applications/XAMPP/xamppfiles/bin/mysql:*)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/api/import_trades.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/api/template.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/trades.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/api/trades.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/api/analytics.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/dashboard.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/profile.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php:*)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/api/chat.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/config/ai.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/includes/footer.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/CAPSTONE_CLAUDE/includes/chat_widget.php)"
+    ]
+  }
+}

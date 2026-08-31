@@ -1,0 +1,24 @@
+# Environment & Secrets
+.env
+.env.local
+config/oauth.php
+config/database.php
+
+# Dependencies
+node_modules/
+vendor/
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Logs & Debug
+*.log
+npm-debug.log*
+logs/
+
+# Build & Next.js cache
+.next/
+out/
+build/
+dist/
