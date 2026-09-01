@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/trading_accounts.php';
+require_once __DIR__ . '/../includes/pnl.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 header('Content-Type: application/json');
@@ -29,8 +31,14 @@ switch ($method) {
 
     case 'GET':
         $db = getDB();
+        bootstrapUserAccounts($db, $userId);
         $where  = ['t.user_id = ?'];
         $params = [$userId];
+        $aid = currentAccountId();
+        if ($aid) {
+            $where[]  = 't.account_id = ?';
+            $params[] = $aid;
+        }
 
         // Search by asset name
         if (!empty($_GET['search'])) {
@@ -67,8 +75,8 @@ switch ($method) {
         $orderBy= $sortMap[$sort] ?? 't.trade_date DESC, t.id DESC';
 
         $whereStr = implode(' AND ', $where);
+        $pnl = tradePnlSql('t');
 
-        // SQL P&L calculation handles multipliers dynamically based on asset name
         $sql = "
             SELECT
                 t.id,
@@ -81,19 +89,7 @@ switch ($method) {
                 t.notes,
                 t.emotion,
                 t.created_at,
-                CASE
-                    WHEN t.asset_name LIKE '%XAU%' OR t.asset_name LIKE '%GOLD%'
-                    THEN ROUND(
-                        CASE WHEN t.trade_type = 'Buy' THEN (t.exit_price - t.entry_price) ELSE (t.entry_price - t.exit_price) END 
-                        * t.quantity * 100, 2)
-                    WHEN t.asset_name LIKE '%XAG%' OR t.asset_name LIKE '%SILVER%'
-                    THEN ROUND(
-                        CASE WHEN t.trade_type = 'Buy' THEN (t.exit_price - t.entry_price) ELSE (t.entry_price - t.exit_price) END 
-                        * t.quantity * 5000, 2)
-                    ELSE ROUND(
-                        CASE WHEN t.trade_type = 'Buy' THEN (t.exit_price - t.entry_price) ELSE (t.entry_price - t.exit_price) END 
-                        * t.quantity, 2)
-                END AS pnl
+                ROUND($pnl, 2) AS pnl
             FROM trades t
             WHERE $whereStr
             ORDER BY $orderBy
@@ -111,12 +107,15 @@ switch ($method) {
         if ($errors) jsonResponse(false, $errors);
 
         $db = getDB();
+        bootstrapUserAccounts($db, $userId);
+        $accountId = writeAccountId($db, $userId);
         $stmt = $db->prepare('
-            INSERT INTO trades (user_id, asset_name, trade_type, entry_price, exit_price, quantity, trade_date, notes, emotion)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO trades (user_id, account_id, asset_name, trade_type, entry_price, exit_price, quantity, trade_date, notes, emotion)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ');
         $stmt->execute([
             $userId,
+            $accountId,
             trim($data['asset_name']),
             $data['trade_type'],
             (float)$data['entry_price'],

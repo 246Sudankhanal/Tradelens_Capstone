@@ -8,6 +8,55 @@
     el.textContent = new Date().toLocaleDateString('en-US', opts);
 })();
 
+window.readApiJson = async function (res) {
+    const text = await res.text();
+    const start = text.indexOf('{');
+    const payload = start >= 0 ? text.slice(start) : text;
+    return JSON.parse(payload);
+};
+
+async function createManualDashboard() {
+    const base = window.TRADELENS_BASE || '';
+    const name = prompt('Name this dashboard (manual trades and CSV import stay here):', 'My journal');
+    if (!name || !name.trim()) return;
+    const data = new FormData();
+    data.append('action', 'create_manual');
+    data.append('display_name', name.trim());
+    try {
+        const res = await fetch(base + '/api/accounts.php', { method: 'POST', body: data });
+        const json = await (window.readApiJson ? window.readApiJson(res) : res.json());
+        if (!json.success) {
+            alert(json.message || 'Could not create dashboard.');
+            return;
+        }
+        window.location.href = base + '/dashboard.php';
+    } catch (e) {
+        alert('Could not create dashboard. Try again.');
+    }
+}
+
+document.getElementById('new-dashboard-btn')?.addEventListener('click', createManualDashboard);
+
+document.getElementById('account-switcher')?.addEventListener('change', async function () {
+    const base = window.TRADELENS_BASE || '';
+    if (this.value === '__create__') {
+        this.value = this.getAttribute('data-current') || 'all';
+        createManualDashboard();
+        return;
+    }
+    const data = new FormData();
+    data.append('action', 'select');
+    data.append('id', this.value);
+    this.disabled = true;
+    try {
+        await fetch(base + '/api/accounts.php', { method: 'POST', body: data });
+        window.location.reload();
+    } catch (e) {
+        this.disabled = false;
+        alert('Could not switch account. Try again.');
+    }
+});
+
 // Mobile sidebar toggle
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');

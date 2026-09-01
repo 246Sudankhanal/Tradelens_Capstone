@@ -21,6 +21,24 @@ include __DIR__ . '/includes/header.php';
 
 <div class="toast-container" id="toast-container"></div>
 
+<div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fa-solid fa-table-columns" style="color:var(--accent);margin-right:8px"></i>Manual dashboards</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted text-sm mb-4">Create as many journals as you want. Each one is a separate dashboard for Add Trade and CSV import. This is independent of MetaTrader sync.</p>
+        <form id="manual-journal-form">
+            <label class="form-label">Dashboard name</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <input type="text" name="display_name" class="form-control" placeholder="e.g. Prop firm, Paper trading, Backtests" style="flex:1;min-width:180px" required>
+                <button type="submit" class="btn btn-primary" id="manual-journal-btn">
+                    <i class="fa-solid fa-plus"></i> Create dashboard
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="profile-grid">
 
     <!-- Profile Info Card -->
@@ -88,21 +106,30 @@ include __DIR__ . '/includes/header.php';
 
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title"><i class="fa-solid fa-arrows-rotate" style="color:var(--accent);margin-right:8px"></i>Broker auto-sync</h3>
+            <h3 class="card-title"><i class="fa-solid fa-arrows-rotate" style="color:var(--accent);margin-right:8px"></i>Synced accounts</h3>
             <span class="broker-card-status" id="broker-global-status">Ready</span>
         </div>
         <div class="card-body">
-            <p class="text-muted text-sm mb-4">Connect your MetaTrader account via MetaApi to pull closed trades automatically.</p>
+            <p class="text-muted text-sm mb-4">Connect extra MetaTrader logins here. Manual dashboards are created from the top bar (<strong>New dashboard</strong>) or the card above.</p>
             
             <div class="alert alert-error" id="broker-conn-error" style="display:none; margin-bottom: 12px;"></div>
             <div class="alert alert-success" id="broker-conn-success" style="display:none; margin-bottom: 12px;"></div>
 
-            <!-- Broker Connection Form -->
             <form id="broker-connect-form" novalidate style="margin-bottom: 20px;">
                 <input type="hidden" name="action" value="connect_broker">
-                <input type="hidden" name="broker_key" value="metatrader5">
-                <input type="hidden" name="platform" value="mt5">
 
+                <div class="form-group">
+                    <label class="form-label">Nickname</label>
+                    <input type="text" name="display_name" class="form-control" placeholder="e.g. Exness live, IC Markets demo">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Platform</label>
+                    <select name="platform" class="form-control" id="broker-platform">
+                        <option value="mt5">MetaTrader 5</option>
+                        <option value="mt4">MetaTrader 4</option>
+                    </select>
+                    <input type="hidden" name="broker_key" id="broker-key" value="metatrader5">
+                </div>
                 <div class="form-group">
                     <label class="form-label">Broker Server</label>
                     <input type="text" name="server" class="form-control" placeholder="e.g. Exness-Trial" required>
@@ -116,16 +143,16 @@ include __DIR__ . '/includes/header.php';
                     <input type="password" name="password" class="form-control" placeholder="••••••••" required>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block" id="broker-connect-btn">
-                    <i class="fa-solid fa-plug"></i> Connect MetaTrader Account
+                    <i class="fa-solid fa-plug"></i> Add MetaTrader account
                 </button>
             </form>
 
             <div class="broker-list" id="broker-list">
-                <div class="text-muted text-sm">Loading connections…</div>
+                <div class="text-muted text-sm">Loading accounts…</div>
             </div>
             
             <button type="button" class="btn btn-outline btn-block mt-4" id="broker-sync-btn" onclick="runBrokerSync()">
-                <i class="fa-solid fa-cloud-arrow-down"></i> Sync now
+                <i class="fa-solid fa-cloud-arrow-down"></i> Sync all accounts
             </button>
             <div class="alert alert-info" id="broker-msg" style="margin-top:14px;margin-bottom:0"></div>
         </div>
@@ -180,7 +207,7 @@ document.getElementById('broker-connect-form').addEventListener('submit', async 
 
     try {
         const res  = await fetch(BASE + '/api/broker_sync.php', { method: 'POST', body: data });
-        const json = await res.json();
+        const json = await window.readApiJson(res);
         
         if (json.success) {
             suc.textContent = json.message || 'Account successfully connected!';
@@ -198,7 +225,7 @@ document.getElementById('broker-connect-form').addEventListener('submit', async 
         err.style.display = 'block';
     } finally {
         btn.disabled = false; 
-        btn.innerHTML = '<i class="fa-solid fa-plug"></i> Connect MetaTrader Account';
+        btn.innerHTML = '<i class="fa-solid fa-plug"></i> Add MetaTrader account';
     }
 });
 
@@ -285,6 +312,31 @@ function showToast(msg, type='success') {
 loadStats();
 loadBrokerStatus();
 
+document.getElementById('manual-journal-form')?.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const btn = document.getElementById('manual-journal-btn');
+    const data = new FormData(this);
+    data.append('action', 'create_manual');
+    btn.disabled = true;
+    try {
+        const res = await fetch(BASE + '/api/accounts.php', { method: 'POST', body: data });
+        const json = await window.readApiJson(res);
+        showToast(json.message || (json.success ? 'Created' : 'Could not create'), json.success ? 'success' : 'error');
+        if (json.success) {
+            this.reset();
+            window.location.reload();
+        }
+    } catch {
+        showToast('Could not create journal.', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+document.getElementById('broker-platform')?.addEventListener('change', function () {
+    document.getElementById('broker-key').value = this.value === 'mt4' ? 'metatrader4' : 'metatrader5';
+});
+
 async function loadBrokerStatus() {
     try {
         const res  = await fetch(BASE + '/api/broker_sync.php?action=status');
@@ -293,20 +345,77 @@ async function loadBrokerStatus() {
         const enabled = json.data.enabled;
         document.getElementById('broker-global-status').textContent = enabled ? 'Ready' : 'Placeholders only';
         const list = document.getElementById('broker-list');
-        list.innerHTML = json.data.brokers.map(b => `
-            <div class="broker-row">
-                <i class="fa-solid fa-plug"></i>
-                <div style="flex:1;min-width:0">
-                    <div class="broker-name">${escHtml(b.label)}</div>
-                    <div class="broker-sub">${escHtml(b.status)}${b.last_sync_at ? ' · last sync ' + escHtml(b.last_sync_at) : ''}</div>
-                    ${b.last_error ? `<div class="broker-sub" style="color:var(--red)">${escHtml(b.last_error)}</div>` : ''}
+        const accounts = json.data.accounts || json.data.brokers || [];
+        if (!accounts.length) {
+            list.innerHTML = '<div class="text-muted text-sm">No accounts yet. Manual journal is created automatically after you add a trade.</div>';
+            return;
+        }
+        list.innerHTML = accounts.map(a => {
+            const isManual = a.account_type === 'manual';
+            const typeLabel = isManual ? 'Manual journal' : (a.account_type === 'metatrader4' ? 'MetaTrader 4' : 'MetaTrader 5');
+            const syncBtn = isManual ? '' : `<button type="button" class="btn btn-outline" onclick="runBrokerSync(${a.id})">Sync</button>`;
+            const manualCount = accounts.filter(x => x.account_type === 'manual').length;
+            const canRemove = isManual ? manualCount > 1 : true;
+            const disconnectBtn = canRemove
+                ? `<button type="button" class="btn btn-outline" onclick="disconnectAccount(${a.id}, ${JSON.stringify(a.display_name)}, ${isManual ? 'true' : 'false'})">${isManual ? 'Delete' : 'Disconnect'}</button>`
+                : '';
+            return `
+            <div class="broker-row" style="align-items:flex-start;flex-direction:column">
+                <div style="display:flex;gap:12px;width:100%;align-items:center">
+                    <i class="fa-solid ${isManual ? 'fa-pen-to-square' : 'fa-plug'}"></i>
+                    <div style="flex:1;min-width:0">
+                        <div class="broker-name">${escHtml(a.display_name)}</div>
+                        <div class="broker-sub">${escHtml(typeLabel)} · ${escHtml(a.status || 'active')} · ${a.trade_count || 0} trades${a.last_sync_at ? ' · last sync ' + escHtml(a.last_sync_at) : ''}</div>
+                        ${a.last_error ? `<div class="broker-sub" style="color:var(--red)">${escHtml(a.last_error)}</div>` : ''}
+                    </div>
                 </div>
-            </div>
-        `).join('');
+                <div class="account-card-actions">
+                    <button type="button" class="btn btn-primary" onclick="openAccount(${a.id})">Open dashboard</button>
+                    ${syncBtn}
+                    <button type="button" class="btn btn-outline" onclick="renameAccount(${a.id}, ${JSON.stringify(a.display_name)})">Rename</button>
+                    ${disconnectBtn}
+                </div>
+            </div>`;
+        }).join('');
     } catch (e) {}
 }
 
-async function runBrokerSync() {
+async function openAccount(id) {
+    const data = new FormData();
+    data.append('action', 'select');
+    data.append('id', String(id));
+    await fetch(BASE + '/api/accounts.php', { method: 'POST', body: data });
+    window.location.href = BASE + '/dashboard.php';
+}
+
+async function renameAccount(id, current) {
+    const name = prompt('Account nickname', current || '');
+    if (!name) return;
+    const data = new FormData();
+    data.append('action', 'rename');
+    data.append('id', String(id));
+    data.append('display_name', name);
+    const res = await fetch(BASE + '/api/accounts.php', { method: 'POST', body: data });
+    const json = await res.json();
+    showToast(json.message || (json.success ? 'Renamed' : 'Could not rename'), json.success ? 'success' : 'error');
+    loadBrokerStatus();
+}
+
+async function disconnectAccount(id, name, isManual) {
+    const ok = isManual
+        ? confirm('Delete journal "' + name + '"? Its trades will move to another manual journal.')
+        : confirm('Disconnect "' + name + '"? Its trades will move to your default Manual journal.');
+    if (!ok) return;
+    const data = new FormData();
+    data.append('action', 'disconnect');
+    data.append('id', String(id));
+    const res = await fetch(BASE + '/api/accounts.php', { method: 'POST', body: data });
+    const json = await res.json();
+    showToast(json.message || 'Done', json.success ? 'success' : 'error');
+    loadBrokerStatus();
+}
+
+async function runBrokerSync(accountId) {
     const btn = document.getElementById('broker-sync-btn');
     const msg = document.getElementById('broker-msg');
     btn.disabled = true;
@@ -315,22 +424,25 @@ async function runBrokerSync() {
     try {
         const data = new FormData();
         data.append('action', 'sync');
+        if (accountId) data.append('account_id', String(accountId));
         const res  = await fetch(BASE + '/api/broker_sync.php', { method: 'POST', body: data });
-        const json = await res.json();
+        const json = await window.readApiJson(res);
         msg.textContent = json.message;
         msg.className = 'alert ' + (json.success ? 'alert-info' : 'alert-error') + ' show';
         loadBrokerStatus();
         loadStats();
-    } catch {
-        msg.textContent = 'Network error.';
+    } catch (e) {
+        msg.textContent = 'Could not read the sync response. Refresh Dashboard and Journal — the import may still have completed.';
         msg.className = 'alert alert-error show';
+        loadBrokerStatus();
+        loadStats();
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Sync now';
+        btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Sync all accounts';
     }
 }
 
-function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

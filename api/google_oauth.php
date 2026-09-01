@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', '0');
+error_reporting(E_ALL & ~E_DEPRECATED);
+ob_start();
 /**
  * Google OAuth start + callback.
  */
@@ -19,6 +22,9 @@ if (session_status() === PHP_SESSION_NONE) {
 $loginUrl = rtrim(BASE_URL, '/') . '/index.php';
 
 function oauthFail(string $message): void {
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     header('Location: ' . rtrim(BASE_URL, '/') . '/index.php?msg=oauth_error&detail=' . urlencode($message));
     exit;
 }
@@ -38,7 +44,6 @@ function oauthHttp(string $url, string $method = 'GET', ?string $body = null, ar
         curl_setopt_array($ch, $opts);
         $raw = curl_exec($ch);
         $err = curl_error($ch);
-        curl_close($ch);
         if ($raw === false) {
             oauthFail($err ?: 'Could not reach Google.');
         }
@@ -63,17 +68,30 @@ function oauthHttp(string $url, string $method = 'GET', ?string $body = null, ar
 }
 
 function tableHasColumn(PDO $db, string $table, string $column): bool {
-    $stmt = $db->prepare('SHOW COLUMNS FROM `' . str_replace('`', '', $table) . '` LIKE ?');
-    $stmt->execute([$column]);
-    return (bool) $stmt->fetch();
+    $table  = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
+    $column = preg_replace('/[^a-zA-Z0-9_]/', '', $column);
+    $stmt = $db->query('SHOW COLUMNS FROM `' . $table . '`');
+    foreach ($stmt->fetchAll() as $row) {
+        if (strcasecmp((string) ($row['Field'] ?? ''), $column) === 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function ensureGoogleUserColumns(PDO $db): void {
     if (!tableHasColumn($db, 'users', 'google_id')) {
-        $db->exec('ALTER TABLE users ADD COLUMN google_id VARCHAR(255) NULL UNIQUE');
+        try {
+            $db->exec('ALTER TABLE users ADD COLUMN google_id VARCHAR(255) NULL');
+        } catch (PDOException $e) { /* exists */ }
+        try {
+            $db->exec('ALTER TABLE users ADD UNIQUE KEY uniq_users_google_id (google_id)');
+        } catch (PDOException $e) { /* exists */ }
     }
     if (!tableHasColumn($db, 'users', 'auth_provider')) {
-        $db->exec("ALTER TABLE users ADD COLUMN auth_provider VARCHAR(20) NOT NULL DEFAULT 'local'");
+        try {
+            $db->exec("ALTER TABLE users ADD COLUMN auth_provider VARCHAR(20) NOT NULL DEFAULT 'local'");
+        } catch (PDOException $e) { /* exists */ }
     }
 }
 
@@ -122,7 +140,10 @@ if (isset($_GET['code'])) {
 
     $googleId = $info['sub'] ?? '';
     $email    = strtolower(trim($info['email'] ?? ''));
-    $name     = trim($info['name'] ?? ($info['given_name'] ?? 'Trader'));
+    $name = trim($info['name'] ?? ($info['given_name'] ?? 'Trader'));
+    if (strlen($name) > 100) {
+        $name = substr($name, 0, 100);
+    }
 
     if (!$googleId || !$email) {
         oauthFail('Google did not return an email. Enable the userinfo.email scope on the OAuth client.');
@@ -132,17 +153,40 @@ if (isset($_GET['code'])) {
         $db = getDB();
         ensureGoogleUserColumns($db);
 
-        $stmt = $db->prepare('SELECT id, name, email FROM users WHERE google_id = ? OR email = ? LIMIT 1');
-        $stmt->execute([$googleId, $email]);
-        $user = $stmt->fetch();
+        $hasGoogle = tableHasColumn($db, 'users', 'google_id');
+        $hasProvider = tableHasColumn($db, 'users', 'auth_provider');
+
+        $user = null;
+        if ($hasGoogle) {
+            $stmt = $db->prepare('SELECT id, name, email FROM users WHERE google_id = ? LIMIT 1');
+            $stmt->execute([$googleId]);
+            $user = $stmt->fetch() ?: null;
+        }
+        if (!$user) {
+            $stmt = $db->prepare('SELECT id, name, email FROM users WHERE LOWER(email) = ? LIMIT 1');
+            $stmt->execute([$email]);
+            $user = $stmt->fetch() ?: null;
+        }
 
         if ($user) {
-            $db->prepare('UPDATE users SET google_id = ?, auth_provider = ? WHERE id = ?')
-               ->execute([$googleId, 'google', $user['id']]);
+            if ($hasGoogle && $hasProvider) {
+                $db->prepare('UPDATE users SET google_id = ?, auth_provider = ? WHERE id = ?')
+                   ->execute([$googleId, 'google', $user['id']]);
+            } elseif ($hasGoogle) {
+                $db->prepare('UPDATE users SET google_id = ? WHERE id = ?')->execute([$googleId, $user['id']]);
+            }
         } else {
-            $placeholderHash = password_hash(bin2hex(random_bytes(32)), PASSWORD_BCRYPT);
-            $stmt = $db->prepare('INSERT INTO users (name, email, password, google_id, auth_provider) VALUES (?, ?, ?, ?, ?)');
-            $stmt->execute([$name, $email, $placeholderHash, $googleId, 'google']);
+            $placeholderHash = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
+            if ($hasGoogle && $hasProvider) {
+                $stmt = $db->prepare('INSERT INTO users (name, email, password, google_id, auth_provider) VALUES (?, ?, ?, ?, ?)');
+                $stmt->execute([$name, $email, $placeholderHash, $googleId, 'google']);
+            } elseif ($hasGoogle) {
+                $stmt = $db->prepare('INSERT INTO users (name, email, password, google_id) VALUES (?, ?, ?, ?)');
+                $stmt->execute([$name, $email, $placeholderHash, $googleId]);
+            } else {
+                $stmt = $db->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
+                $stmt->execute([$name, $email, $placeholderHash]);
+            }
             $user = [
                 'id'    => (int) $db->lastInsertId(),
                 'name'  => $name,
@@ -150,13 +194,20 @@ if (isset($_GET['code'])) {
             ];
         }
     } catch (PDOException $e) {
-        oauthFail('Database error while creating your Google account. Run the ALTER TABLE notes in setup.sql, then try again.');
+        $msg = $e->getMessage();
+        if (stripos($msg, 'Duplicate') !== false || (string) $e->getCode() === '23000') {
+            oauthFail('This Google email is already on a TradeLens account. Sign in with email and password, then try Google again.');
+        }
+        oauthFail('Could not save your Google login: ' . $msg);
     }
 
     $_SESSION['user_id']    = $user['id'];
     $_SESSION['user_name']  = $user['name'];
     $_SESSION['user_email'] = $user['email'];
 
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     header('Location: ' . rtrim(BASE_URL, '/') . '/dashboard.php');
     exit;
 }
@@ -181,5 +232,8 @@ $params = http_build_query([
     'prompt'        => 'select_account',
 ]);
 
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
 header('Location: ' . GOOGLE_AUTH_URL . '?' . $params);
 exit;

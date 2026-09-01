@@ -1,9 +1,12 @@
 <?php
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/auth_check.php';
+require_once __DIR__ . '/includes/trading_accounts.php';
 $pageTitle  = 'Trade Journal';
 $activePage = 'trades';
 include __DIR__ . '/includes/header.php';
+$journalLabel = activeAccountLabel($headerAccounts ?? []);
+$writeMeta = writeAccountMeta(getDB(), (int) $_SESSION['user_id']);
 ?>
 
 <!-- TOAST CONTAINER -->
@@ -13,7 +16,7 @@ include __DIR__ . '/includes/header.php';
 <div class="page-header">
     <div>
         <h2>Trade Journal</h2>
-        <p>Log, review, and manage your trades</p>
+        <p>Showing <?= htmlspecialchars($journalLabel) ?></p>
     </div>
     <div class="flex-gap">
         <button class="btn btn-outline" onclick="openImportModal()">
@@ -23,6 +26,14 @@ include __DIR__ . '/includes/header.php';
             <i class="fa-solid fa-plus"></i> Add Trade
         </button>
     </div>
+</div>
+
+<div class="alert alert-info show" style="margin-bottom:18px">
+    <?php if (!empty($writeMeta['viewing_all'])): ?>
+        Add Trade and CSV import save to <strong><?= htmlspecialchars($writeMeta['name']) ?></strong> (your default manual journal) while the top bar is on All accounts. Switch to a MetaTrader or other journal first if you want the new rows there.
+    <?php else: ?>
+        Add Trade and CSV import stay on <strong><?= htmlspecialchars($writeMeta['name']) ?></strong>. They are not moved to Manual journal automatically.
+    <?php endif; ?>
 </div>
 
 <!-- QUICK STATS -->
@@ -247,7 +258,7 @@ async function loadTrades() {
 
     try {
         const res  = await fetch(BASE + '/api/trades.php?' + params);
-        const json = await res.json();
+        const json = await window.readApiJson(res);
         if (!json.success) return;
         renderTrades(json.data);
         updateQuickStats(json.data);

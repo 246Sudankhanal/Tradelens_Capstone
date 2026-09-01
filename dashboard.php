@@ -1,19 +1,28 @@
 <?php
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/auth_check.php';
+require_once __DIR__ . '/includes/trading_accounts.php';
 $pageTitle  = 'Dashboard';
 $activePage = 'dashboard';
 include __DIR__ . '/includes/header.php';
+$dashAccounts = $headerAccounts ?? listTradingAccounts(getDB(), (int) $_SESSION['user_id']);
+$dashLabel = activeAccountLabel($dashAccounts);
+$writeMeta = writeAccountMeta(getDB(), (int) $_SESSION['user_id']);
 ?>
 
 <div class="page-header">
     <div>
         <h2>Dashboard</h2>
-        <p>Overview of your trading performance</p>
+        <p>Overview of <?= htmlspecialchars($dashLabel) ?><?php if (empty($writeMeta['viewing_all'])): ?> — new trades/imports save here<?php endif; ?></p>
     </div>
-    <a href="<?= BASE_URL ?>/trades.php" class="btn btn-primary">
-        <i class="fa-solid fa-plus"></i> Add Trade
-    </a>
+    <div class="flex-gap">
+        <button type="button" class="btn btn-outline" onclick="createManualDashboard()">
+            <i class="fa-solid fa-plus"></i> New dashboard
+        </button>
+        <a href="<?= BASE_URL ?>/trades.php" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Add Trade
+        </a>
+    </div>
 </div>
 
 <!-- Metric Cards -->
@@ -167,7 +176,7 @@ const scaleTheme = {
 async function loadDashboard() {
     try {
         const res  = await fetch('<?= BASE_URL ?>/api/analytics.php');
-        const json = await res.json();
+        const json = await window.readApiJson(res);
         if (!json.success) return;
 
         const d = json.data;

@@ -19,6 +19,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>window.TRADELENS_BASE = <?= json_encode(BASE_URL) ?>;</script>
 <script src="<?= BASE_URL ?>/js/main.js"></script>
 <?php if (isset($extraJs)): ?>
 <script><?= $extraJs ?></script>

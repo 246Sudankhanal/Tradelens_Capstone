@@ -1,38 +1,28 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/trading_accounts.php';
+require_once __DIR__ . '/../includes/pnl.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 header('Content-Type: application/json');
 
 $userId = requireAuth();
 $db     = getDB();
+bootstrapUserAccounts($db, $userId);
+$accSql = accountSql();
+$pnl = tradePnlSql();
 
 // Core stats
 $stmt = $db->prepare("
     SELECT
         COUNT(*) AS total_trades,
-        SUM(CASE
-            WHEN trade_type='Buy'  THEN (exit_price - entry_price) * quantity
-            ELSE                       (entry_price - exit_price) * quantity
-        END) AS net_profit,
-        SUM(CASE WHEN (
-            CASE WHEN trade_type='Buy' THEN exit_price - entry_price
-                 ELSE entry_price - exit_price END
-        ) > 0 THEN 1 ELSE 0 END) AS win_count,
-        SUM(CASE WHEN (
-            CASE WHEN trade_type='Buy' THEN exit_price - entry_price
-                 ELSE entry_price - exit_price END
-        ) < 0 THEN 1 ELSE 0 END) AS loss_count,
-        MAX(CASE
-            WHEN trade_type='Buy'  THEN (exit_price - entry_price) * quantity
-            ELSE                       (entry_price - exit_price) * quantity
-        END) AS best_trade,
-        MIN(CASE
-            WHEN trade_type='Buy'  THEN (exit_price - entry_price) * quantity
-            ELSE                       (entry_price - exit_price) * quantity
-        END) AS worst_trade
+        SUM($pnl) AS net_profit,
+        SUM(CASE WHEN ($pnl) > 0 THEN 1 ELSE 0 END) AS win_count,
+        SUM(CASE WHEN ($pnl) < 0 THEN 1 ELSE 0 END) AS loss_count,
+        MAX($pnl) AS best_trade,
+        MIN($pnl) AS worst_trade
     FROM trades
-    WHERE user_id = ?
+    WHERE user_id = ?{$accSql}
 ");
 $stmt->execute([$userId]);
 $stats = $stmt->fetch();
@@ -49,15 +39,10 @@ $worst    = round((float)($stats['worst_trade'] ?? 0), 2);
 $stmt = $db->prepare("
     SELECT
         DATE_FORMAT(trade_date, '%Y-%m') AS month,
-        ROUND(SUM(
-            CASE WHEN trade_type='Buy'
-                 THEN (exit_price - entry_price) * quantity
-                 ELSE (entry_price - exit_price) * quantity
-            END
-        ), 2) AS monthly_pnl
+        ROUND(SUM($pnl), 2) AS monthly_pnl
     FROM trades
     WHERE user_id = ?
-      AND trade_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+      AND trade_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH){$accSql}
     GROUP BY DATE_FORMAT(trade_date, '%Y-%m')
     ORDER BY month ASC
 ");
@@ -79,24 +64,21 @@ foreach ($monthlyRows as $row) {
 // Recent 5 trades
 $stmt = $db->prepare("
     SELECT id, asset_name, trade_type, trade_date,
-        ROUND(CASE WHEN trade_type='Buy'
-              THEN (exit_price - entry_price) * quantity
-              ELSE (entry_price - exit_price) * quantity
-        END, 2) AS pnl
+        ROUND($pnl, 2) AS pnl
     FROM trades
-    WHERE user_id = ?
+    WHERE user_id = ?{$accSql}
     ORDER BY trade_date DESC, id DESC
     LIMIT 5
 ");
 $stmt->execute([$userId]);
 $recentTrades = $stmt->fetchAll();
 
-$pnlExpr = "CASE WHEN trade_type='Buy' THEN (exit_price - entry_price) * quantity ELSE (entry_price - exit_price) * quantity END";
+$pnlExpr = tradePnlSql();
 
 $stmt = $db->prepare("
     SELECT trade_date AS d, ROUND(SUM($pnlExpr), 2) AS pnl, COUNT(*) AS trades
     FROM trades
-    WHERE user_id = ? AND trade_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+    WHERE user_id = ? AND trade_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY){$accSql}
     GROUP BY trade_date
 ");
 $stmt->execute([$userId]);
@@ -112,7 +94,7 @@ $weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 $weekdayPnl = array_fill(0, 7, 0.0);
 $stmt = $db->prepare("
     SELECT WEEKDAY(trade_date) AS wd, ROUND(SUM($pnlExpr), 2) AS pnl
-    FROM trades WHERE user_id = ?
+    FROM trades WHERE user_id = ?{$accSql}
     GROUP BY WEEKDAY(trade_date)
 ");
 $stmt->execute([$userId]);
@@ -123,7 +105,7 @@ foreach ($stmt->fetchAll() as $row) {
 
 $stmt = $db->prepare("
     SELECT asset_name, ROUND(SUM($pnlExpr), 2) AS pnl, COUNT(*) AS cnt
-    FROM trades WHERE user_id = ?
+    FROM trades WHERE user_id = ?{$accSql}
     GROUP BY asset_name
     ORDER BY ABS(SUM($pnlExpr)) DESC
     LIMIT 8
@@ -136,7 +118,7 @@ $assetPnl = array_map('floatval', array_column($assetRows, 'pnl'));
 $stmt = $db->prepare("
     SELECT emotion, ROUND(AVG($pnlExpr), 2) AS avg_pnl
     FROM trades
-    WHERE user_id = ? AND emotion IS NOT NULL AND emotion != ''
+    WHERE user_id = ? AND emotion IS NOT NULL AND emotion != ''{$accSql}
     GROUP BY emotion
     ORDER BY avg_pnl DESC
 ");

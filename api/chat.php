@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/ai.php';
+require_once __DIR__ . '/../includes/trading_accounts.php';
+require_once __DIR__ . '/../includes/pnl.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 header('Content-Type: application/json');
@@ -22,21 +24,25 @@ if ($userMessage === '') {
 
 // ---- Fetch user trade context from DB ----
 $db = getDB();
+bootstrapUserAccounts($db, $userId);
+$accSql = accountSql();
+$pnl = tradePnlSql();
+$accLabel = 'All accounts';
+$aid = currentAccountId();
+if ($aid) {
+    $owned = ownedTradingAccount($db, $userId, $aid);
+    if ($owned) $accLabel = (string) $owned['display_name'];
+}
 
 $stmt = $db->prepare("
     SELECT
         COUNT(*) AS total_trades,
-        ROUND(SUM(CASE WHEN trade_type='Buy'  THEN (exit_price-entry_price)*quantity
-                       ELSE (entry_price-exit_price)*quantity END), 2) AS net_pnl,
-        SUM(CASE WHEN (CASE WHEN trade_type='Buy'  THEN exit_price-entry_price
-                            ELSE entry_price-exit_price END) > 0 THEN 1 ELSE 0 END) AS wins,
-        SUM(CASE WHEN (CASE WHEN trade_type='Buy'  THEN exit_price-entry_price
-                            ELSE entry_price-exit_price END) < 0 THEN 1 ELSE 0 END) AS losses,
-        MAX(CASE WHEN trade_type='Buy'  THEN (exit_price-entry_price)*quantity
-                 ELSE (entry_price-exit_price)*quantity END) AS best_trade,
-        MIN(CASE WHEN trade_type='Buy'  THEN (exit_price-entry_price)*quantity
-                 ELSE (entry_price-exit_price)*quantity END) AS worst_trade
-    FROM trades WHERE user_id = ?
+        ROUND(SUM($pnl), 2) AS net_pnl,
+        SUM(CASE WHEN ($pnl) > 0 THEN 1 ELSE 0 END) AS wins,
+        SUM(CASE WHEN ($pnl) < 0 THEN 1 ELSE 0 END) AS losses,
+        MAX($pnl) AS best_trade,
+        MIN($pnl) AS worst_trade
+    FROM trades WHERE user_id = ?{$accSql}
 ");
 $stmt->execute([$userId]);
 $stats = $stmt->fetch();
@@ -52,9 +58,8 @@ $winRate = $total > 0 ? round(($wins / $total) * 100, 1) : 0;
 // Recent 10 trades
 $stmt = $db->prepare("
     SELECT asset_name, trade_type, entry_price, exit_price, quantity, trade_date, emotion, notes,
-        ROUND(CASE WHEN trade_type='Buy'  THEN (exit_price-entry_price)*quantity
-                   ELSE (entry_price-exit_price)*quantity END, 2) AS pnl
-    FROM trades WHERE user_id = ?
+        ROUND($pnl, 2) AS pnl
+    FROM trades WHERE user_id = ?{$accSql}
     ORDER BY trade_date DESC, id DESC LIMIT 10
 ");
 $stmt->execute([$userId]);
@@ -63,7 +68,7 @@ $recentTrades = $stmt->fetchAll();
 // Emotion breakdown
 $stmt = $db->prepare("
     SELECT emotion, COUNT(*) AS cnt
-    FROM trades WHERE user_id = ? AND emotion IS NOT NULL AND emotion != ''
+    FROM trades WHERE user_id = ? AND emotion IS NOT NULL AND emotion != ''{$accSql}
     GROUP BY emotion ORDER BY cnt DESC
 ");
 $stmt->execute([$userId]);
@@ -104,6 +109,7 @@ GUARDRAILS:
 4. Keep answers concise, data-driven, and focused on behavioral patterns.
 
 ## Trader: {$userName}
+## Viewing account: {$accLabel}
 
 ## Their Current Stats
 - Total trades: {$total}

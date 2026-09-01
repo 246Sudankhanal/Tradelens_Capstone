@@ -494,6 +494,52 @@ textarea.form-control { resize: vertical; min-height: 90px; }
   flex: 1;
 }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.account-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px 10px 4px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.account-switcher i { color: var(--accent); font-size: 13px; }
+
+.account-switcher select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  max-width: 200px;
+  cursor: pointer;
+  outline: none;
+}
+
+#new-dashboard-btn {
+  white-space: nowrap;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.account-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.account-card-actions .btn { padding: 6px 10px; font-size: 12px; }
+
 .topbar-date {
   font-size: 13px;
   color: var(--text-muted);

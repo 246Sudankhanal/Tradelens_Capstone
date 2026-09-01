@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/trading_accounts.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 header('Content-Type: application/json');
@@ -62,9 +63,11 @@ foreach ($required as $col) {
 
 // ---- Insert rows ----
 $db   = getDB();
+bootstrapUserAccounts($db, $userId);
+$accountId = writeAccountId($db, $userId);
 $stmt = $db->prepare('
-    INSERT INTO trades (user_id, asset_name, trade_type, entry_price, exit_price, quantity, trade_date, notes, emotion)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO trades (user_id, account_id, asset_name, trade_type, entry_price, exit_price, quantity, trade_date, notes, emotion)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ');
 
 $imported = 0;
@@ -121,7 +124,7 @@ foreach ($rows as $i => $row) {
     $emotionVal    = in_array($emotion, $validEmotions) ? $emotion : null;
 
     try {
-        $stmt->execute([$userId, $asset, $type, $entry, $exit, $qtyNum, $date, $notes, $emotionVal]);
+        $stmt->execute([$userId, $accountId, $asset, $type, $entry, $exit, $qtyNum, $date, $notes, $emotionVal]);
         $imported++;
     } catch (PDOException $e) {
         $errors[] = "Row $rowNum: Database error — " . $e->getMessage();

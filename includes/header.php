@@ -10,6 +10,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
 <body class="app-body">
+<script>
+window.readApiJson = async function (res) {
+    const text = await res.text();
+    const start = text.indexOf('{');
+    const payload = start >= 0 ? text.slice(start) : text;
+    return JSON.parse(payload);
+};
+</script>
 
 <nav class="sidebar" id="sidebar">
     <div class="sidebar-brand">
@@ -56,6 +64,34 @@
         </button>
         <h1 class="page-title"><?= htmlspecialchars($pageTitle ?? 'TradeLens') ?></h1>
         <div class="topbar-right">
+            <?php
+            $headerAccounts = [];
+            $headerActiveId = null;
+            try {
+                require_once __DIR__ . '/trading_accounts.php';
+                $headerDb = getDB();
+                $headerAccounts = listTradingAccounts($headerDb, (int) $_SESSION['user_id']);
+                $headerActiveId = currentAccountId();
+            } catch (Throwable $e) {
+                $headerAccounts = [];
+            }
+            ?>
+            <label class="account-switcher" title="Switch trading account">
+                <i class="fa-solid fa-layer-group"></i>
+                <select id="account-switcher" aria-label="Trading account" data-current="<?= $headerActiveId === null ? 'all' : (int) $headerActiveId ?>">
+                    <option value="all"<?= $headerActiveId === null ? ' selected' : '' ?>>All accounts</option>
+                    <?php foreach ($headerAccounts as $acc): ?>
+                        <option value="<?= (int) $acc['id'] ?>"<?= $headerActiveId === (int) $acc['id'] ? ' selected' : '' ?>>
+                            <?= htmlspecialchars($acc['display_name']) ?>
+                            (<?= (int) ($acc['trade_count'] ?? 0) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                    <option value="__create__">+ New manual dashboard…</option>
+                </select>
+            </label>
+            <button type="button" class="btn btn-outline btn-sm" id="new-dashboard-btn" title="Create a dashboard for manual trades and CSV import">
+                <i class="fa-solid fa-plus"></i> New dashboard
+            </button>
             <span class="topbar-date" id="topbar-date"></span>
         </div>
     </header>

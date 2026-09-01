@@ -4,15 +4,22 @@
  */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/brokers.php';
+require_once __DIR__ . '/../includes/trading_accounts.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 $isCli = (PHP_SAPI === 'cli');
+if (!$isCli) {
+    ob_start();
+}
 @set_time_limit(90);
 
 define('METAAPI_PROVISIONING', 'https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai');
 
 function brokerJson($success, $message = '', $data = null) {
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     header('Content-Type: application/json');
     $out = ['success' => $success, 'message' => $message];
     if ($data !== null) $out['data'] = $data;
@@ -62,7 +69,6 @@ function metaApiRequest(string $url, string $method = 'GET', $body = null, int $
         $raw  = curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err  = curl_error($ch);
-        curl_close($ch);
 
         if ($raw === false) {
             throw new RuntimeException('MetaApi network error: ' . ($err ?: 'unknown'));
@@ -324,66 +330,70 @@ function fetchClosedTrades(string $brokerKey, array $creds, int $lookbackDays, ?
 
 function listBrokerStatus(PDO $db, int $userId): array {
     global $BROKER_CREDENTIALS;
-    $stmt = $db->prepare('SELECT broker_key, status, last_sync_at, last_error, account_id FROM broker_connections WHERE user_id = ?');
-    $stmt->execute([$userId]);
-    $rows = [];
-    foreach ($stmt->fetchAll() as $row) {
-        $rows[$row['broker_key']] = $row;
-    }
-
-    $out = [];
-    foreach ($BROKER_CREDENTIALS as $key => $cfg) {
-        $row = $rows[$key] ?? null;
-        $out[] = [
-            'key'          => $key,
-            'label'        => $cfg['label'],
-            'configured'   => !empty($cfg['enabled']) && BROKER_SYNC_ENABLED,
-            'status'       => $row['status'] ?? 'disconnected',
-            'last_sync_at' => $row['last_sync_at'] ?? null,
-            'last_error'   => $row['last_error'] ?? null,
-            'connected'    => !empty($row['account_id']) && ($row['status'] ?? '') === 'connected',
+    bootstrapUserAccounts($db, $userId);
+    $accounts = [];
+    foreach (listTradingAccounts($db, $userId) as $row) {
+        $accounts[] = [
+            'id'            => (int) $row['id'],
+            'display_name'  => $row['display_name'],
+            'account_type'  => $row['account_type'],
+            'broker_login'  => $row['broker_login'],
+            'status'        => $row['status'],
+            'last_sync_at'  => $row['last_sync_at'],
+            'last_error'    => $row['last_error'],
+            'trade_count'   => (int) ($row['trade_count'] ?? 0),
+            'connected'     => !empty($row['metaapi_id']) && $row['account_type'] !== 'manual',
         ];
     }
-    return $out;
+    $brokers = [];
+    foreach ($BROKER_CREDENTIALS as $key => $cfg) {
+        $brokers[] = [
+            'key'        => $key,
+            'label'      => $cfg['label'],
+            'configured' => !empty($cfg['enabled']) && BROKER_SYNC_ENABLED,
+        ];
+    }
+    return $accounts;
 }
 
-function syncUserBrokers(PDO $db, int $userId): array {
+function syncUserBrokers(PDO $db, int $userId, ?int $onlyAccountId = null): array {
     global $BROKER_CREDENTIALS;
 
+    bootstrapUserAccounts($db, $userId);
+
     if (!BROKER_SYNC_ENABLED) {
-        return ['imported' => 0, 'skipped' => 0, 'brokers' => [], 'notice' => 'Broker sync is disabled.'];
+        return ['imported' => 0, 'skipped' => 0, 'accounts' => [], 'notice' => 'Broker sync is disabled.'];
     }
 
     $imported = 0;
     $skipped  = 0;
-    $perBroker = [];
+    $perAccount = [];
 
     $insert = $db->prepare('
-        INSERT INTO trades (user_id, asset_name, trade_type, entry_price, exit_price, quantity, trade_date, notes, emotion, source, broker_trade_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+        INSERT INTO trades (user_id, account_id, asset_name, trade_type, entry_price, exit_price, quantity, trade_date, notes, emotion, source, broker_trade_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
     ');
 
-    $connStmt = $db->prepare('SELECT broker_key, account_id, status, region FROM broker_connections WHERE user_id = ?');
-    try {
-        $connStmt->execute([$userId]);
-    } catch (PDOException $e) {
-        $connStmt = $db->prepare('SELECT broker_key, account_id, status FROM broker_connections WHERE user_id = ?');
-        $connStmt->execute([$userId]);
+    $sql = "SELECT * FROM trading_accounts WHERE user_id = ? AND account_type != 'manual' AND metaapi_id IS NOT NULL AND metaapi_id != ''";
+    $params = [$userId];
+    if ($onlyAccountId) {
+        $sql .= ' AND id = ?';
+        $params[] = $onlyAccountId;
     }
-    $connections = [];
-    foreach ($connStmt->fetchAll() as $c) {
-        $connections[$c['broker_key']] = $c;
-    }
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $connections = $stmt->fetchAll();
 
-    foreach ($BROKER_CREDENTIALS as $key => $creds) {
-        if (empty($creds['enabled'])) {
-            $perBroker[$key] = ['imported' => 0, 'skipped' => 0, 'status' => 'disabled'];
-            continue;
+    foreach ($connections as $userConn) {
+        $key = (string) ($userConn['account_type'] ?? 'metatrader5');
+        if (!isset($BROKER_CREDENTIALS[$key])) {
+            $key = 'metatrader5';
         }
+        $creds = $BROKER_CREDENTIALS[$key] ?? [];
+        $taId  = (int) $userConn['id'];
 
-        $userConn = $connections[$key] ?? null;
-        if (!$userConn || empty($userConn['account_id'])) {
-            $perBroker[$key] = ['imported' => 0, 'skipped' => 0, 'status' => 'disconnected'];
+        if (empty($creds['enabled'])) {
+            $perAccount[$taId] = ['imported' => 0, 'skipped' => 0, 'status' => 'disabled', 'name' => $userConn['display_name']];
             continue;
         }
 
@@ -394,7 +404,7 @@ function syncUserBrokers(PDO $db, int $userId): array {
                 $key,
                 $creds,
                 BROKER_SYNC_LOOKBACK_DAYS,
-                $userConn['account_id'],
+                (string) $userConn['metaapi_id'],
                 $userConn['region'] ?? null
             );
         } catch (Throwable $e) {
@@ -411,9 +421,16 @@ function syncUserBrokers(PDO $db, int $userId): array {
                 continue;
             }
 
-            $exists = $db->prepare('SELECT id FROM trades WHERE user_id = ? AND broker_trade_id = ?');
+            $exists = $db->prepare('SELECT id, account_id FROM trades WHERE user_id = ? AND broker_trade_id = ? LIMIT 1');
             $exists->execute([$userId, $mapped['broker_trade_id']]);
-            if ($exists->fetch()) {
+            $existing = $exists->fetch();
+            if ($existing) {
+                if (empty($existing['account_id'])) {
+                    $db->prepare('UPDATE trades SET account_id = ? WHERE id = ? AND user_id = ?')
+                       ->execute([$taId, $existing['id'], $userId]);
+                    $bImported++;
+                    continue;
+                }
                 $bSkipped++;
                 continue;
             }
@@ -421,6 +438,7 @@ function syncUserBrokers(PDO $db, int $userId): array {
             try {
                 $insert->execute([
                     $userId,
+                    $taId,
                     $mapped['asset_name'],
                     $mapped['trade_type'],
                     $mapped['entry_price'],
@@ -437,17 +455,17 @@ function syncUserBrokers(PDO $db, int $userId): array {
             }
         }
 
-        try {
-            $db->prepare('
-                UPDATE broker_connections
-                SET last_sync_at = NOW(), last_error = ?, status = ?
-                WHERE user_id = ? AND broker_key = ?
-            ')->execute([$error, $error ? 'error' : 'connected', $userId, $key]);
-        } catch (PDOException $e) { /* ignore */ }
+        $db->prepare('
+            UPDATE trading_accounts
+            SET last_sync_at = NOW(), last_error = ?, status = ?
+            WHERE id = ? AND user_id = ?
+        ')->execute([$error, $error ? 'error' : 'connected', $taId, $userId]);
 
         $imported += $bImported;
         $skipped  += $bSkipped;
-        $perBroker[$key] = [
+        $perAccount[$taId] = [
+            'id'       => $taId,
+            'name'     => $userConn['display_name'],
             'imported' => $bImported,
             'skipped'  => $bSkipped,
             'status'   => $error ? 'error' : 'synced',
@@ -456,15 +474,18 @@ function syncUserBrokers(PDO $db, int $userId): array {
     }
 
     $notice = null;
-    if ($imported === 0 && $skipped === 0) {
+    if (!$connections) {
+        $notice = 'No MetaTrader accounts are connected yet.';
+    } elseif ($imported === 0 && $skipped === 0) {
         $notice = 'Connected, but MetaApi returned no closed trades in the last ' . BROKER_SYNC_LOOKBACK_DAYS . ' days. Open positions are not imported.';
     }
 
-    return compact('imported', 'skipped') + ['brokers' => $perBroker, 'notice' => $notice];
+    return compact('imported', 'skipped') + ['accounts' => $perAccount, 'brokers' => $perAccount, 'notice' => $notice];
 }
 
 $db = getDB();
 ensureBrokerTables($db);
+ensureTradingAccountSchema($db);
 
 if ($isCli) {
     $opts   = getopt('', ['user:', 'secret:']);
@@ -484,21 +505,26 @@ if ($isCli) {
 }
 
 $userId = requireAuth();
+bootstrapUserAccounts($db, $userId);
 $action = $_POST['action'] ?? $_GET['action'] ?? 'status';
 
 if ($action === 'status') {
+    $accounts = listBrokerStatus($db, $userId);
     brokerJson(true, 'Broker sync status.', [
-        'enabled' => BROKER_SYNC_ENABLED,
-        'brokers' => listBrokerStatus($db, $userId),
+        'enabled'  => BROKER_SYNC_ENABLED,
+        'accounts' => $accounts,
+        'brokers'  => $accounts,
+        'active_id'=> currentAccountId(),
     ]);
 }
 
 if ($action === 'sync') {
-    $result = syncUserBrokers($db, $userId);
+    $onlyId = (int) ($_POST['account_id'] ?? $_GET['account_id'] ?? 0);
+    $result = syncUserBrokers($db, $userId, $onlyId > 0 ? $onlyId : null);
     $msg = $result['notice'] ?: ('Imported ' . $result['imported'] . ' trade(s)' . ($result['skipped'] ? ', skipped ' . $result['skipped'] : '') . '.');
     $errors = [];
     foreach ($result['brokers'] as $b) {
-        if (!empty($b['error'])) $errors[] = $b['error'];
+        if (!empty($b['error'])) $errors[] = ($b['name'] ?? 'Account') . ': ' . $b['error'];
     }
     if ($errors && $result['imported'] === 0) {
         brokerJson(false, implode(' ', $errors), $result);
@@ -512,14 +538,26 @@ if ($action === 'connect_broker') {
     $login     = trim($_POST['login'] ?? '');
     $password  = $_POST['password'] ?? '';
     $platform  = $_POST['platform'] ?? 'mt5';
+    $nickname  = trim($_POST['display_name'] ?? '');
+
+    if ($platform === 'mt4') {
+        $brokerKey = 'metatrader4';
+    } elseif ($brokerKey !== 'metatrader4') {
+        $brokerKey = 'metatrader5';
+        $platform  = 'mt5';
+    }
 
     if ($server === '' || $login === '' || $password === '') {
         brokerJson(false, 'Please fill in all broker credentials.');
     }
 
+    if ($nickname === '') {
+        $nickname = ($platform === 'mt4' ? 'MT4' : 'MT5') . ' · ' . $login;
+    }
+
     try {
         $account = createMetaApiAccount([
-            'name'     => 'TradeLens User ' . $userId,
+            'name'     => 'TradeLens ' . $userId . ' ' . $login,
             'login'    => $login,
             'password' => $password,
             'server'   => $server,
@@ -532,30 +570,24 @@ if ($action === 'connect_broker') {
             brokerJson(false, 'Failed to provision the MetaTrader account. Check login, investor/trading password, and exact server name.');
         }
 
-        $stmt = $db->prepare('
-            INSERT INTO broker_connections (user_id, broker_key, status, account_id, region, last_sync_at, last_error)
-            VALUES (?, ?, "connected", ?, ?, NOW(), NULL)
-            ON DUPLICATE KEY UPDATE status = "connected", account_id = VALUES(account_id), region = VALUES(region), last_sync_at = NOW(), last_error = NULL
+        $ins = $db->prepare('
+            INSERT INTO trading_accounts
+                (user_id, display_name, account_type, broker_login, broker_server, metaapi_id, region, status, last_sync_at, last_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, "connected", NOW(), NULL)
         ');
-        try {
-            $stmt->execute([$userId, $brokerKey, $accountId, $region ?: null]);
-        } catch (PDOException $e) {
-            $db->prepare('
-                INSERT INTO broker_connections (user_id, broker_key, status, account_id, last_sync_at, last_error)
-                VALUES (?, ?, "connected", ?, NOW(), NULL)
-                ON DUPLICATE KEY UPDATE status = "connected", account_id = VALUES(account_id), last_sync_at = NOW(), last_error = NULL
-            ')->execute([$userId, $brokerKey, $accountId]);
-        }
+        $ins->execute([$userId, $nickname, $brokerKey, $login, $server, $accountId, $region ?: null]);
+        $taId = (int) $db->lastInsertId();
+        $_SESSION['active_account_id'] = $taId;
 
-        $result = syncUserBrokers($db, $userId);
+        $result = syncUserBrokers($db, $userId, $taId);
         $imported = (int) ($result['imported'] ?? 0);
-        $msg = 'MetaTrader account connected.';
+        $msg = 'Connected "' . $nickname . '". Switch accounts from the top bar to view its own dashboard.';
         if ($imported > 0) {
-            $msg .= ' Imported ' . $imported . ' closed trade(s). Open the dashboard to see them.';
+            $msg .= ' Imported ' . $imported . ' closed trade(s).';
         } else {
             $msg .= ' No closed trades in the last ' . BROKER_SYNC_LOOKBACK_DAYS . ' days yet. Open positions are not synced.';
         }
-        brokerJson(true, $msg, $result);
+        brokerJson(true, $msg, $result + ['account_id' => $taId]);
     } catch (Exception $e) {
         brokerJson(false, 'Connection error: ' . $e->getMessage());
     }
