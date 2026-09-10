@@ -2,17 +2,24 @@
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/config/oauth.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
+
 if (isset($_SESSION['user_id'])) {
     header('Location: ' . BASE_URL . '/dashboard.php');
     exit;
 }
+
+$msg = $_GET['msg'] ?? '';
+$loggedOut = $msg === 'logged_out';
+$oauthNotConfigured = $msg === 'oauth_not_configured';
+$oauthError = $msg === 'oauth_error';
+$oauthDetail = trim($_GET['detail'] ?? '');
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register — TradeLens</title>
+    <title>Sign in — TradeLens</title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -21,16 +28,27 @@ if (isset($_SESSION['user_id'])) {
 
 <div class="auth-card">
     <div class="auth-brand">
-        <div class="logo-icon"><i class="fa-solid fa-chart-line"></i></div>
-        <h1>TradeLens</h1>
+        <a href="<?= BASE_URL ?>/index.php" class="auth-brand-link">
+            <div class="logo-icon"><i class="fa-solid fa-chart-line"></i></div>
+            <h1>TradeLens</h1>
+        </a>
         <p>Your personal trading journal</p>
     </div>
 
-    <h2 class="auth-title">Create account</h2>
-    <p class="auth-subtitle">Start tracking your trades today</p>
+    <h2 class="auth-title">Welcome back</h2>
+    <p class="auth-subtitle">Sign in to your account</p>
 
-    <div class="alert alert-error"   id="error-msg"></div>
-    <div class="alert alert-success" id="success-msg"></div>
+    <?php if ($loggedOut): ?>
+    <div class="alert alert-info show">You have been signed out successfully.</div>
+    <?php endif; ?>
+    <?php if ($oauthNotConfigured): ?>
+    <div class="alert alert-info show">Google sign-in is almost ready. Add your Client ID and Secret in <code>config/oauth.php</code>.</div>
+    <?php endif; ?>
+    <?php if ($oauthError): ?>
+    <div class="alert alert-error show"><?= htmlspecialchars($oauthDetail ?: 'Google sign-in failed. Please try again.') ?></div>
+    <?php endif; ?>
+
+    <div class="alert alert-error" id="error-msg"></div>
 
     <a class="btn btn-google" href="<?= BASE_URL ?>/api/google_oauth.php">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -41,65 +59,59 @@ if (isset($_SESSION['user_id'])) {
         </svg>
         Continue with Google
     </a>
-    
+    <?php if (!googleOAuthConfigured()): ?>
+    <p class="oauth-hint">OAuth keys are placeholders until you add them in config/oauth.php</p>
+    <?php endif; ?>
 
     <div class="auth-divider">or</div>
 
-    <form id="register-form" novalidate>
-        <div class="form-group">
-            <label class="form-label">Full name</label>
-            <input type="text" name="name" class="form-control" placeholder="John Doe" required autocomplete="name">
-        </div>
+    <form id="login-form" novalidate>
         <div class="form-group">
             <label class="form-label">Email address</label>
             <input type="email" name="email" class="form-control" placeholder="you@example.com" required autocomplete="email">
         </div>
         <div class="form-group">
-            <label class="form-label">Password <span class="text-muted text-sm">(min. 6 chars)</span></label>
-            <input type="password" name="password" class="form-control" placeholder="••••••••" required autocomplete="new-password">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
         </div>
-        <button type="submit" class="btn btn-primary btn-block" id="register-btn">
-            Create Account
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">
+            Sign In
         </button>
     </form>
 
-    <p class="auth-link">Already have an account? <a href="<?= BASE_URL ?>/login.php">Sign in</a></p>
+    <p class="auth-link">Don't have an account? <a href="<?= BASE_URL ?>/register.php">Create one</a></p>
     <p class="auth-link" style="margin-top:10px"><a href="<?= BASE_URL ?>/index.php">← Back to home</a></p>
 </div>
 
 <script>
-document.getElementById('register-form').addEventListener('submit', async function(e) {
+document.getElementById('login-form').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const btn  = document.getElementById('register-btn');
+    const btn = document.getElementById('login-btn');
     const errEl = document.getElementById('error-msg');
-    const sucEl = document.getElementById('success-msg');
     errEl.classList.remove('show');
-    sucEl.classList.remove('show');
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Creating account...';
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
 
     const data = new FormData(this);
-    data.append('action', 'register');
+    data.append('action', 'login');
 
     try {
         const res  = await fetch('<?= BASE_URL ?>/api/auth.php', { method: 'POST', body: data });
         const json = await res.json();
         if (json.success) {
-            sucEl.textContent = json.message + ' Redirecting...';
-            sucEl.classList.add('show');
-            this.reset();
-            setTimeout(() => window.location.href = '<?= BASE_URL ?>/login.php', 1800);
+            window.location.href = json.data.redirect;
         } else {
             errEl.textContent = json.message;
             errEl.classList.add('show');
+            btn.disabled = false;
+            btn.innerHTML = 'Sign In';
         }
     } catch {
         errEl.textContent = 'Network error. Please try again.';
         errEl.classList.add('show');
-    } finally {
         btn.disabled = false;
-        btn.innerHTML = 'Create Account';
+        btn.innerHTML = 'Sign In';
     }
 });
 </script>

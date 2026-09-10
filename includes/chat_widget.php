@@ -1,4 +1,7 @@
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
 /* ============================================
    TradeLens AI Chat Widget
@@ -83,11 +86,149 @@
     height: auto;
     max-width: none;
     max-height: none;
-    border-radius: 16px;
+    border-radius: 20px;
     z-index: 1100;
+    font-family: 'Outfit', 'Inter', sans-serif;
+    background:
+        radial-gradient(1200px 480px at 12% -10%, rgba(79,142,247,0.16), transparent 55%),
+        radial-gradient(900px 420px at 100% 0%, rgba(124,58,237,0.14), transparent 50%),
+        var(--bg-card);
+    border-color: rgba(79,142,247,0.22);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.45);
 }
 .chat-panel.expanded .chat-header {
-    border-radius: 16px 16px 0 0;
+    border-radius: 20px 20px 0 0;
+    padding: 18px 22px;
+    background: linear-gradient(180deg, rgba(26,37,64,0.92), rgba(20,28,46,0.88));
+    backdrop-filter: blur(10px);
+}
+.chat-panel.expanded .chat-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+    box-shadow: 0 0 0 3px rgba(79,142,247,0.18);
+}
+.chat-panel.expanded .chat-header-name {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+.chat-panel.expanded .chat-header-status {
+    font-size: 13px;
+    margin-top: 2px;
+}
+.chat-panel.expanded .chat-header-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+    border-radius: 10px;
+}
+.chat-panel.expanded .chat-history {
+    width: 280px;
+    background: rgba(10,16,28,0.55);
+}
+.chat-panel.expanded .chat-history-head {
+    font-size: 13px;
+    padding: 18px 16px 10px;
+    letter-spacing: 0.08em;
+}
+.chat-panel.expanded .chat-history-item {
+    padding: 12px 12px;
+    border-radius: 12px;
+}
+.chat-panel.expanded .chat-history-item .hist-title {
+    font-size: 14.5px;
+    font-weight: 600;
+}
+.chat-panel.expanded .chat-history-item .hist-meta {
+    font-size: 12px;
+}
+.chat-panel.expanded .chat-messages {
+    padding: 28px 8% 20px;
+    gap: 20px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.015), transparent 120px);
+}
+.chat-panel.expanded .chat-msg {
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+    gap: 12px;
+}
+.chat-panel.expanded .msg-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+}
+.chat-panel.expanded .msg-bubble {
+    padding: 16px 20px;
+    border-radius: 18px;
+    font-size: 17.5px;
+    line-height: 1.7;
+    letter-spacing: 0.01em;
+    max-width: calc(100% - 48px);
+}
+.chat-panel.expanded .chat-msg.ai-msg .msg-bubble {
+    font-family: 'Fraunces', 'Georgia', serif;
+    font-optical-sizing: auto;
+    font-weight: 450;
+    background: linear-gradient(180deg, #1e2b48, #18243d);
+    border: 1px solid rgba(148,163,184,0.12);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+    color: #e8eef8;
+}
+.chat-panel.expanded .chat-msg.user-msg .msg-bubble {
+    font-family: 'Outfit', 'Inter', sans-serif;
+    font-size: 16.5px;
+    font-weight: 500;
+    line-height: 1.55;
+    background: linear-gradient(135deg, #4f8ef7, #6d5ef5);
+    box-shadow: 0 8px 22px rgba(79,142,247,0.28);
+}
+.chat-panel.expanded .msg-bubble p { margin-bottom: 10px; }
+.chat-panel.expanded .msg-bubble li { margin-bottom: 6px; }
+.chat-panel.expanded .msg-bubble strong {
+    font-weight: 700;
+    color: #fff;
+}
+.chat-panel.expanded .msg-bubble code {
+    font-size: 14px;
+    padding: 2px 7px;
+}
+.chat-panel.expanded .chat-suggestions {
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 4px 8% 10px;
+    gap: 8px;
+    justify-content: flex-start;
+}
+.chat-panel.expanded .suggestion-chip {
+    font-family: 'Outfit', sans-serif;
+    font-size: 13.5px;
+    padding: 8px 14px;
+    border-radius: 999px;
+}
+.chat-panel.expanded .chat-input-area {
+    padding: 16px 8% 20px;
+    background: linear-gradient(180deg, transparent, rgba(10,16,28,0.45));
+}
+.chat-panel.expanded .chat-input {
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 14px 18px;
+    border-radius: 16px;
+    max-height: 140px;
+    background: rgba(20,28,46,0.9);
+}
+.chat-panel.expanded .chat-send-btn {
+    width: 46px;
+    height: 46px;
+    font-size: 16px;
+}
+.chat-panel.expanded .typing-bubble {
+    padding: 16px 20px;
+    border-radius: 18px;
 }
 body.chat-expanded .chat-fab { display: none; }
 
@@ -409,6 +550,10 @@ body.chat-expanded .chat-fab { display: none; }
     .chat-panel.expanded { inset: 8px; }
     .chat-panel.history-open .chat-history,
     .chat-panel.expanded .chat-history { width: 180px; }
+    .chat-panel.expanded .chat-messages,
+    .chat-panel.expanded .chat-suggestions,
+    .chat-panel.expanded .chat-input-area { padding-left: 16px; padding-right: 16px; }
+    .chat-panel.expanded .msg-bubble { font-size: 16.5px; }
 }
 
 /* Markdown-like formatting in AI messages */
@@ -443,7 +588,7 @@ body.chat-expanded .chat-fab { display: none; }
         <div class="chat-avatar"><i class="fa-solid fa-robot"></i></div>
         <div class="chat-header-info">
             <div class="chat-header-name">TradeLens AI</div>
-            <div class="chat-header-status" id="chat-header-status">Online — powered by OpenAI</div>
+            <div class="chat-header-status" id="chat-header-status">Online — journal copilot</div>
         </div>
         <div class="chat-header-actions">
             <button class="chat-header-btn" onclick="toggleChatHistory()" title="Chat history">

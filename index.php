@@ -1,117 +1,168 @@
 <?php
 require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/config/oauth.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// Already logged in → redirect
 if (isset($_SESSION['user_id'])) {
     header('Location: ' . BASE_URL . '/dashboard.php');
     exit;
 }
 
-$msg = $_GET['msg'] ?? '';
-$loggedOut = $msg === 'logged_out';
-$oauthNotConfigured = $msg === 'oauth_not_configured';
-$oauthError = $msg === 'oauth_error';
-$oauthDetail = trim($_GET['detail'] ?? '');
+$loggedOut = ($_GET['msg'] ?? '') === 'logged_out';
+$base = rtrim(BASE_URL, '/');
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — TradeLens</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>TradeLens — Trading journal with analytics, broker sync, and AI</title>
+    <meta name="description" content="TradeLens is a personal trading journal. Log trades, import CSVs, sync MetaTrader, and review P&amp;L with an AI copilot.">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
-<body class="auth-body">
+<body class="landing-body">
 
-<div class="auth-card">
-    <div class="auth-brand">
-        <div class="logo-icon"><i class="fa-solid fa-chart-line"></i></div>
-        <h1>TradeLens</h1>
-        <p>Your personal trading journal</p>
-    </div>
-
-    <h2 class="auth-title">Welcome back</h2>
-    <p class="auth-subtitle">Sign in to your account</p>
-
-    <?php if ($loggedOut): ?>
-    <div class="alert alert-info show">You have been signed out successfully.</div>
-    <?php endif; ?>
-    <?php if ($oauthNotConfigured): ?>
-    <div class="alert alert-info show">Google sign-in is almost ready. Add your Client ID and Secret in <code>config/oauth.php</code>.</div>
-    <?php endif; ?>
-    <?php if ($oauthError): ?>
-    <div class="alert alert-error show"><?= htmlspecialchars($oauthDetail ?: 'Google sign-in failed. Please try again.') ?></div>
-    <?php endif; ?>
-
-    <div class="alert alert-error" id="error-msg"></div>
-
-    <a class="btn btn-google" href="<?= BASE_URL ?>/api/google_oauth.php">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        Continue with Google
+<header class="lp-nav">
+    <a href="<?= BASE_URL ?>/index.php" class="lp-brand">
+        <span class="lp-logo"><i class="fa-solid fa-chart-line"></i></span>
+        TradeLens
     </a>
-    <?php if (!googleOAuthConfigured()): ?>
-    <p class="oauth-hint">OAuth keys are placeholders until you add them in config/oauth.php</p>
-    <?php endif; ?>
+    <nav class="lp-links">
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="<?= BASE_URL ?>/login.php">Sign in</a>
+        <a href="<?= BASE_URL ?>/register.php" class="btn btn-primary btn-sm">Get started</a>
+    </nav>
+</header>
 
-    <div class="auth-divider">or</div>
+<?php if ($loggedOut): ?>
+<div class="lp-banner">You have been signed out. <a href="<?= BASE_URL ?>/login.php">Sign in again</a></div>
+<?php endif; ?>
 
-    <form id="login-form" novalidate>
-        <div class="form-group">
-            <label class="form-label">Email address</label>
-            <input type="email" name="email" class="form-control" placeholder="you@example.com" required autocomplete="email">
+<section class="lp-hero">
+    <div class="lp-hero-copy">
+        <p class="lp-kicker">Personal trading journal</p>
+        <h1>See your edge clearly — not just your last trade.</h1>
+        <p class="lp-lead">Log fills, import CSVs, or sync MetaTrader. Each account gets its own dashboard. An AI copilot answers from <em>your</em> stats, not generic market talk.</p>
+        <div class="lp-hero-actions">
+            <a href="<?= BASE_URL ?>/register.php" class="btn btn-primary">Create free account</a>
+            <a href="<?= BASE_URL ?>/login.php" class="btn btn-outline">Sign in</a>
         </div>
-        <div class="form-group">
-            <label class="form-label">Password</label>
-            <input type="password" name="password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+        <ul class="lp-pills">
+            <li>Multi-account books</li>
+            <li>MetaTrader sync</li>
+            <li>CSV import</li>
+            <li>Journal AI</li>
+        </ul>
+    </div>
+    <div class="lp-hero-card" aria-hidden="true">
+        <div class="lp-fake-top">
+            <span></span><span></span><span></span>
+            <strong>Dashboard · Live book</strong>
         </div>
-        <button type="submit" class="btn btn-primary btn-block" id="login-btn">
-            Sign In
-        </button>
-    </form>
+        <div class="lp-metrics">
+            <div>
+                <small>Win rate</small>
+                <b>54.2%</b>
+            </div>
+            <div>
+                <small>Net P&amp;L</small>
+                <b class="pos">+$1,284</b>
+            </div>
+            <div>
+                <small>Trades</small>
+                <b>86</b>
+            </div>
+        </div>
+        <div class="lp-bars">
+            <i style="height:42%"></i>
+            <i style="height:68%"></i>
+            <i style="height:35%"></i>
+            <i style="height:80%"></i>
+            <i style="height:58%"></i>
+            <i style="height:90%"></i>
+            <i style="height:48%"></i>
+        </div>
+        <p class="lp-fake-note"><i class="fa-solid fa-robot"></i> “Your Friday XAUUSD shorts are dragging win rate. Size down after two losses.”</p>
+    </div>
+</section>
 
-    <p class="auth-link">Don't have an account? <a href="register.php">Create one</a></p>
-</div>
+<section class="lp-section" id="features">
+    <h2>Built for how traders actually review</h2>
+    <p class="lp-section-lead">One place for execution, psychology notes, and account-level stats.</p>
+    <div class="lp-grid">
+        <article class="lp-feature">
+            <i class="fa-solid fa-book-open"></i>
+            <h3>Trade journal</h3>
+            <p>Buy/sell, size, notes, and emotion tags. Filter and sort the book the way you review a session.</p>
+        </article>
+        <article class="lp-feature">
+            <i class="fa-solid fa-chart-area"></i>
+            <h3>Analytics</h3>
+            <p>Win rate, net P&amp;L, heatmaps, weekday and asset breakdowns so patterns show up faster than a spreadsheet.</p>
+        </article>
+        <article class="lp-feature">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <h3>Broker sync</h3>
+            <p>Connect MetaTrader 4/5 and pull closed trades. Keep live, demo, and prop books on separate dashboards.</p>
+        </article>
+        <article class="lp-feature">
+            <i class="fa-solid fa-file-import"></i>
+            <h3>CSV import</h3>
+            <p>Drop a file into the account you have selected. Imports stay on that dashboard — they are not moved to Manual by themselves.</p>
+        </article>
+        <article class="lp-feature">
+            <i class="fa-solid fa-layer-group"></i>
+            <h3>Manual dashboards</h3>
+            <p>Create extra journals for paper, backtests, or a challenge. Switch them from the top bar like a broker account.</p>
+        </article>
+        <article class="lp-feature">
+            <i class="fa-solid fa-robot"></i>
+            <h3>AI copilot</h3>
+            <p>Ask about win rate, emotions, and recent fills. Answers stay tied to the journal you are viewing.</p>
+        </article>
+    </div>
+</section>
 
-<script>
-document.getElementById('login-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const btn = document.getElementById('login-btn');
-    const errEl = document.getElementById('error-msg');
-    errEl.classList.remove('show');
+<section class="lp-section lp-how" id="how">
+    <h2>How it works</h2>
+    <ol class="lp-steps">
+        <li>
+            <span>1</span>
+            <div>
+                <h3>Create an account</h3>
+                <p>Email or Google. You land on a dashboard with a default manual journal.</p>
+            </div>
+        </li>
+        <li>
+            <span>2</span>
+            <div>
+                <h3>Add trades your way</h3>
+                <p>Log them, import CSV, or sync MetaTrader. Switch books when you want a clean view.</p>
+            </div>
+        </li>
+        <li>
+            <span>3</span>
+            <div>
+                <h3>Review and ask</h3>
+                <p>Charts show the numbers. The assistant talks through behavior — without telling you what to buy.</p>
+            </div>
+        </li>
+    </ol>
+</section>
 
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+<section class="lp-cta">
+    <h2>Start the journal you will actually keep.</h2>
+    <p>Free to create an account. Your trades stay on your books.</p>
+    <a href="<?= BASE_URL ?>/register.php" class="btn btn-primary">Get started</a>
+</section>
 
-    const data = new FormData(this);
-    data.append('action', 'login');
+<footer class="lp-foot">
+    <span>TradeLens</span>
+    <span>Capstone trading journal · not financial advice</span>
+    <a href="<?= BASE_URL ?>/login.php">Sign in</a>
+</footer>
 
-    try {
-        const res  = await fetch('<?= BASE_URL ?>/api/auth.php', { method: 'POST', body: data });
-        const json = await res.json();
-        if (json.success) {
-            window.location.href = json.data.redirect;
-        } else {
-            errEl.textContent = json.message;
-            errEl.classList.add('show');
-            btn.disabled = false;
-            btn.innerHTML = 'Sign In';
-        }
-    } catch {
-        errEl.textContent = 'Network error. Please try again.';
-        errEl.classList.add('show');
-        btn.disabled = false;
-        btn.innerHTML = 'Sign In';
-    }
-});
-</script>
 </body>
 </html>

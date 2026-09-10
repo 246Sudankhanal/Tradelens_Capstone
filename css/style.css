@@ -1277,6 +1277,9 @@ tbody td {
 
 
 
+.auth-brand-link { display: block; color: inherit; }
+.auth-brand-link:hover { color: inherit; }
+
 .toolbar {
     display: flex;
     justify-content: space-between;
@@ -1296,4 +1299,296 @@ tbody td {
 .toolbar .filters .form-control {
     width: auto;
     max-width: 160px;
+}
+
+/* ============================================
+   LANDING
+   ============================================ */
+
+.landing-body {
+  background: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse at 12% -10%, rgba(79,142,247,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 10%, rgba(124,58,237,0.12) 0%, transparent 45%);
+}
+
+.lp-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 7%;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(10,14,26,0.82);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.lp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.4px;
+}
+
+.lp-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent), #7c3aed);
+  color: #fff;
+}
+
+.lp-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.lp-links a:hover { color: var(--text-primary); }
+
+.lp-banner {
+  text-align: center;
+  padding: 10px 16px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.lp-banner a { color: inherit; font-weight: 600; text-decoration: underline; }
+
+.lp-hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  align-items: center;
+  padding: 64px 7% 40px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.lp-kicker {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.lp-hero h1 {
+  font-size: clamp(32px, 4.4vw, 52px);
+  line-height: 1.12;
+  letter-spacing: -1.4px;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+
+.lp-lead {
+  color: var(--text-secondary);
+  font-size: 17px;
+  max-width: 540px;
+  margin-bottom: 24px;
+}
+
+.lp-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+
+.lp-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+}
+
+.lp-pills li {
+  font-size: 12px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+.lp-hero-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: var(--shadow-lg);
+}
+
+.lp-fake-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.lp-fake-top span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-light);
+}
+
+.lp-fake-top span:first-child { background: #ff5a5a; }
+.lp-fake-top span:nth-child(2) { background: #fbbf24; }
+.lp-fake-top span:nth-child(3) { background: #00c896; }
+.lp-fake-top strong { margin-left: 8px; color: var(--text-secondary); font-weight: 600; }
+
+.lp-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.lp-metrics div {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.lp-metrics small { display: block; color: var(--text-muted); font-size: 11px; }
+.lp-metrics b { font-size: 20px; letter-spacing: -0.4px; }
+.lp-metrics .pos { color: var(--green); }
+
+.lp-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 110px;
+  padding: 8px 4px 0;
+  margin-bottom: 14px;
+}
+
+.lp-bars i {
+  flex: 1;
+  display: block;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, var(--accent), rgba(79,142,247,0.25));
+}
+
+.lp-fake-note {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--bg-card-alt);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.lp-fake-note i { color: var(--accent); margin-right: 6px; }
+
+.lp-section {
+  padding: 56px 7%;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.lp-section h2 {
+  font-size: 28px;
+  letter-spacing: -0.6px;
+  margin-bottom: 8px;
+}
+
+.lp-section-lead {
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+}
+
+.lp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.lp-feature {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+}
+
+.lp-feature i {
+  color: var(--accent);
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.lp-feature h3 { font-size: 16px; margin-bottom: 8px; }
+.lp-feature p { font-size: 14px; color: var(--text-secondary); }
+
+.lp-steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.lp-steps li {
+  display: flex;
+  gap: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.lp-steps span {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-glow);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.lp-steps h3 { font-size: 16px; margin-bottom: 6px; }
+.lp-steps p { font-size: 14px; color: var(--text-secondary); }
+
+.lp-cta {
+  text-align: center;
+  padding: 48px 7% 28px;
+}
+
+.lp-cta h2 { font-size: 28px; letter-spacing: -0.6px; margin-bottom: 8px; }
+.lp-cta p { color: var(--text-secondary); margin-bottom: 18px; }
+
+.lp-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 22px 7% 36px;
+  color: var(--text-muted);
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+
+.lp-foot a { color: var(--accent); }
+
+@media (max-width: 900px) {
+  .lp-hero,
+  .lp-grid,
+  .lp-steps { grid-template-columns: 1fr; }
+  .lp-links a:not(.btn) { display: none; }
+  .lp-hero { padding-top: 36px; }
 }

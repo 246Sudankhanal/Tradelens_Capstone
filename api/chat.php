@@ -131,7 +131,6 @@ GUARDRAILS:
 - If they have no trades yet, encourage them to start logging
 - Do not invent trades or numbers that are not in the data above";
 
-// ---- Build messages for OpenAI ----
 $messages = [['role' => 'system', 'content' => $systemPrompt]];
 
 foreach (array_slice($history, -20) as $turn) {
@@ -143,23 +142,28 @@ foreach (array_slice($history, -20) as $turn) {
 
 $messages[] = ['role' => 'user', 'content' => $userMessage];
 
-// ---- Call OpenAI API ----
+if (!defined('OPENROUTER_API_KEY') || OPENROUTER_API_KEY === '' || strpos(OPENROUTER_API_KEY, 'YOUR_') !== false) {
+    jsonResponse(false, 'OpenRouter is not configured. Add OPENROUTER_API_KEY in config/ai.php.');
+}
+
 $payload = json_encode([
-    'model'       => OPENAI_MODEL,
+    'model'       => OPENROUTER_MODEL,
     'messages'    => $messages,
     'temperature' => 0.7,
     'max_tokens'  => 1024,
 ]);
 
-$ch = curl_init('https://api.openai.com/v1/chat/completions');
+$ch = curl_init(OPENROUTER_URL);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_POST           => true,
     CURLOPT_POSTFIELDS     => $payload,
-    CURLOPT_TIMEOUT        => 30,
+    CURLOPT_TIMEOUT        => 45,
     CURLOPT_HTTPHEADER     => [
         'Content-Type: application/json',
-        'Authorization: Bearer ' . OPENAI_API_KEY,
+        'Authorization: Bearer ' . OPENROUTER_API_KEY,
+        'HTTP-Referer: ' . OPENROUTER_SITE_URL,
+        'X-Title: ' . OPENROUTER_APP_NAME,
     ],
 ]);
 
@@ -167,21 +171,20 @@ $raw      = curl_exec($ch);
 $curlErr  = curl_error($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-
 if ($curlErr) {
-    jsonResponse(false, 'Could not reach OpenAI: ' . $curlErr);
+    jsonResponse(false, 'Could not reach OpenRouter: ' . $curlErr);
 }
 
 $result = json_decode($raw, true);
 
 if ($httpCode !== 200) {
-    $errMsg = $result['error']['message'] ?? ('OpenAI error — HTTP ' . $httpCode);
+    $errMsg = $result['error']['message'] ?? ('OpenRouter error — HTTP ' . $httpCode);
     jsonResponse(false, $errMsg);
 }
 
 $reply = $result['choices'][0]['message']['content'] ?? '';
 if (!$reply) {
-    jsonResponse(false, 'Empty response from OpenAI. Try again.');
+    jsonResponse(false, 'Empty response from OpenRouter. Try again.');
 }
 
 try {

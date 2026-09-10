@@ -19,13 +19,13 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$loginUrl = rtrim(BASE_URL, '/') . '/index.php';
+$loginUrl = rtrim(BASE_URL, '/') . '/login.php';
 
 function oauthFail(string $message): void {
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
-    header('Location: ' . rtrim(BASE_URL, '/') . '/index.php?msg=oauth_error&detail=' . urlencode($message));
+    header('Location: ' . rtrim(BASE_URL, '/') . '/login.php?msg=oauth_error&detail=' . urlencode($message));
     exit;
 }
 
