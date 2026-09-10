@@ -63,7 +63,8 @@ if (isset($_SESSION['user_id'])) {
         </button>
     </form>
 
-
+    <p class="auth-link">Already have an account? <a href="<?= BASE_URL ?>/login.php">Sign in</a></p>
+    <p class="auth-link" style="margin-top:10px"><a href="<?= BASE_URL ?>/index.php">← Back to home</a></p>
 </div>
 
 <script>
@@ -88,7 +89,7 @@ document.getElementById('register-form').addEventListener('submit', async functi
             sucEl.textContent = json.message + ' Redirecting...';
             sucEl.classList.add('show');
             this.reset();
-            setTimeout(() => window.location.href = '<?= BASE_URL ?>/index.php', 1800);
+            setTimeout(() => window.location.href = '<?= BASE_URL ?>/login.php', 1800);
         } else {
             errEl.textContent = json.message;
             errEl.classList.add('show');

@@ -2,7 +2,10 @@
 .env
 .env.local
 config/oauth.php
+config/ai.php
 config/database.php
+config/db.php
+config/brokers.php
 
 # Dependencies
 node_modules/
