@@ -15,6 +15,11 @@ vendor/
 .DS_Store
 Thumbs.db
 
+# Editor / agent folders (local only)
+.claude/
+.cursor/
+.vscode/
+
 # Logs & Debug
 *.log
 npm-debug.log*

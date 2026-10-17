@@ -60,7 +60,7 @@ $oauthDetail = trim($_GET['detail'] ?? '');
         Continue with Google
     </a>
     <?php if (!googleOAuthConfigured()): ?>
-    <p class="oauth-hint">OAuth keys are placeholders until you add them in config/oauth.php</p>
+    <p class="oauth-hint">Google sign-in is optional. You can use email and password instead.</p>
     <?php endif; ?>
 
     <div class="auth-divider">or</div>
