@@ -23,6 +23,8 @@ If you are hiring: this is a coursework app. My main personal projects are elsew
 - Optional MetaTrader sync via MetaApi (closed deals only)
 - Optional AI chat (OpenRouter) scoped to the signed-in user’s data
 
+![Architecture](docs/architecture.svg)
+
 ## Stack
 
 PHP 8, MySQL (PDO), HTML/CSS/vanilla JS. Built to run on XAMPP or `php -S`. Charts via Chart.js CDN.
