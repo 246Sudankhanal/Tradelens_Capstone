@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="360" viewBox="0 0 940 360" role="img" aria-label="How a trade gets from the form to the dashboard">
+  <rect width="100%" height="100%" fill="#0a0e1a"/>
+  <text x="28" y="32" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="600" fill="#e2e8f0">How a trade gets from the form to the dashboard</text>
+  <rect x="28" y="70" width="140" height="64" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="98" y="98" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#e2e8f0">Browser</text>
+  <text x="98" y="116" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">PHP pages + JS</text>
+  <line x1="168" y1="102" x2="240" y2="102" stroke="#4f8ef7" stroke-width="1.4"/>
+  <polygon points="239,98 248,102 239,106" fill="#4f8ef7"/>
+  <text x="208" y="94" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#94a3b8">session cookie</text>
+  <rect x="248" y="70" width="170" height="64" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="333" y="98" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#e2e8f0">PHP</text>
+  <text x="333" y="116" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">pages and api/*.php</text>
+  <line x1="418" y1="102" x2="520" y2="102" stroke="#00c896" stroke-width="1.4"/>
+  <polygon points="519,98 528,102 519,106" fill="#00c896"/>
+  <text x="473" y="94" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#94a3b8">PDO prepared</text>
+  <rect x="528" y="70" width="160" height="64" rx="4" fill="#141c2e" stroke="#00c896" stroke-width="1.2"/>
+  <text x="608" y="98" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#e2e8f0">MySQL</text>
+  <text x="608" y="116" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">journals + trades</text>
+  <text x="28" y="168" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">Same app, optional extras</text>
+  <rect x="248" y="188" width="170" height="56" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="333" y="212" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#e2e8f0">CSV import</text>
+  <text x="333" y="230" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">xlsx / csv ’ rows</text>
+  <rect x="448" y="188" width="170" height="56" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="533" y="212" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#e2e8f0">MetaApi</text>
+  <text x="533" y="230" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">closed deals only</text>
+  <rect x="648" y="188" width="184" height="56" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="740" y="212" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#e2e8f0">OpenRouter</text>
+  <text x="740" y="230" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">your journal stats</text>
+  <line x1="333" y1="134" x2="333" y2="180" stroke="#4f8ef7" stroke-width="1.4"/>
+  <polygon points="329,179 333,188 337,179" fill="#4f8ef7"/>
+  <text x="28" y="280" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">Not a broker. Chat only sees the signed-in users aggregates. Passwords are bcrypt; queries use PDO.</text>
+  <text x="28" y="302" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">Google login stays off until oauth.php has keys.</text>
+</svg>
