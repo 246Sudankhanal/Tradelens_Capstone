@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1100" viewBox="0 0 1100 1100" role="img" aria-label="How a trade gets from the form to the dashboard">
+  <rect width="1100" height="1100" fill="#0a0e1a"/>
+  <text x="36" y="40" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="600" fill="#e2e8f0">How a trade gets from the form to the dashboard</text>
+  <rect x="36" y="72" width="170" height="68" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="121" y="102" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#e2e8f0">Browser</text>
+  <text x="121" y="120" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">PHP pages + JS</text>
+  <line x1="206" y1="106" x2="278" y2="106" stroke="#4f8ef7" stroke-width="1.4"/>
+  <polygon points="277,102 286,106 277,110" fill="#4f8ef7"/>
+  <text x="246" y="98" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#94a3b8">session cookie</text>
+  <rect x="286" y="72" width="200" height="68" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="386" y="102" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#e2e8f0">PHP</text>
+  <text x="386" y="120" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">pages and api/*.php</text>
+  <line x1="486" y1="106" x2="568" y2="106" stroke="#00c896" stroke-width="1.4"/>
+  <polygon points="567,102 576,106 567,110" fill="#00c896"/>
+  <text x="531" y="98" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#94a3b8">PDO prepared</text>
+  <rect x="576" y="72" width="200" height="68" rx="4" fill="#141c2e" stroke="#00c896" stroke-width="1.2"/>
+  <text x="676" y="102" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#e2e8f0">MySQL</text>
+  <text x="676" y="120" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">journals + trades</text>
+  <text x="36" y="176" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#94a3b8">Same app, optional extras</text>
+  <rect x="286" y="196" width="200" height="60" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="386" y="222" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#e2e8f0">CSV import</text>
+  <text x="386" y="240" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">xlsx / csv to rows</text>
+  <rect x="516" y="196" width="200" height="60" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="616" y="222" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#e2e8f0">MetaApi</text>
+  <text x="616" y="240" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">closed deals only</text>
+  <rect x="746" y="196" width="240" height="60" rx="4" fill="#141c2e" stroke="#1e2d45" stroke-width="1.2"/>
+  <text x="866" y="222" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#e2e8f0">OpenRouter</text>
+  <text x="866" y="240" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">your journal stats</text>
+  <line x1="386" y1="140" x2="386" y2="188" stroke="#4f8ef7" stroke-width="1.4"/>
+  <polygon points="382,187 386,196 390,187" fill="#4f8ef7"/>
+  <text x="36" y="292" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#94a3b8">Not a broker. Chat only sees the signed-in user's aggregates. Passwords are bcrypt; queries use PDO.</text>
+  <text x="36" y="314" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#94a3b8">Google login stays off until oauth.php has keys.</text>
+</svg>
