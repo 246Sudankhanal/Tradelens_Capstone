@@ -48,9 +48,8 @@ php -S localhost:8080
 
 Open http://localhost:8080 — landing page, then register.
 
-Google login, MetaTrader sync, and the AI chat stay off until you put real keys in those config files. **Do not commit** `config/db.php`, `ai.php`, `oauth.php`, or `brokers.php` (they are gitignored).
 
-More setup notes: `TUTOR_SETUP.md`. Longer write-up: `DOCUMENTATION.md` and `TRADELENS_FINAL_REPORT.md`.
+
 
 ## Layout
 
